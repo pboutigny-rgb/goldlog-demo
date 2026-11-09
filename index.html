@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Démonstration interactive de GoldLog, outil de pilotage logistique : demandes de transport, packing lists, déchets, RMA. Données entièrement fictives.">
+<title>GoldLog Démo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout : barre latérale de navigation (comme l'application de bureau), zone de travail, panneau d'aperçu à droite. */
+:root {
+  --bg: #f3f2ee; --surface: #ffffff; --surface-2: #f8f7f3; --line: #e2dfd6; --line-strong: #cfcabd;
+  --fg: #1d2129; --muted: #667085; --accent: #b4902f; --accent-strong: #8f701f; --accent-soft: #f6efdb;
+  --ink: #111827; --ink-2: #1e293b; --on-ink: #f8fafc; --on-ink-muted: #cbd5e1; --amber: #fbbf24;
+  --todo-bg: #fee2e2; --todo-fg: #b91c1c; --prog-bg: #fef9c3; --prog-fg: #a16207;
+  --wait-bg: #e0f2fe; --wait-fg: #0369a1; --done-bg: #dcfce7; --done-fg: #15803d; --off-bg: #eef1f5; --off-fg: #475569;
+  --note-bg: #fffbeb; --note-line: #d97706; --alert-bg: #fef2f2; --alert-line: #dc2626;
+  --info-bg: #e0f2fe; --info-fg: #0c4a6e; --info-line: #0369a1;
+  --shadow: 0 1px 2px rgba(17,24,39,.06), 0 6px 20px rgba(17,24,39,.06);
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151b; --surface: #1a1e26; --surface-2: #20252f; --line: #2c323d; --line-strong: #3a414e;
+  --fg: #e7e9ee; --muted: #9aa3b2; --accent: #d4ad4a; --accent-strong: #e5c46b; --accent-soft: #2e2817;
+  --ink: #0b0e13; --ink-2: #161b24; --on-ink: #f8fafc; --on-ink-muted: #b6c0cf; --amber: #fbbf24;
+  --todo-bg: #3b1717; --todo-fg: #fca5a5; --prog-bg: #3a3311; --prog-fg: #fde047;
+  --wait-bg: #0f2c3d; --wait-fg: #7dd3fc; --done-bg: #12321f; --done-fg: #86efac; --off-bg: #262b34; --off-fg: #aab4c3;
+  --note-bg: #2f2510; --note-line: #f59e0b; --alert-bg: #351818; --alert-line: #f87171;
+  --info-bg: #0f2c3d; --info-fg: #bae6fd; --info-line: #38bdf8;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151b; --surface: #1a1e26; --surface-2: #20252f; --line: #2c323d; --line-strong: #3a414e;
+  --fg: #e7e9ee; --muted: #9aa3b2; --accent: #d4ad4a; --accent-strong: #e5c46b; --accent-soft: #2e2817;
+  --ink: #0b0e13; --ink-2: #161b24; --on-ink: #f8fafc; --on-ink-muted: #b6c0cf; --amber: #fbbf24;
+  --todo-bg: #3b1717; --todo-fg: #fca5a5; --prog-bg: #3a3311; --prog-fg: #fde047;
+  --wait-bg: #0f2c3d; --wait-fg: #7dd3fc; --done-bg: #12321f; --done-fg: #86efac; --off-bg: #262b34; --off-fg: #aab4c3;
+  --note-bg: #2f2510; --note-line: #f59e0b; --alert-bg: #351818; --alert-line: #f87171;
+  --info-bg: #0f2c3d; --info-fg: #bae6fd; --info-line: #38bdf8;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num, td.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--f-mono); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.caps { text-transform: uppercase; letter-spacing: .08em; font-size: 11px; font-weight: 700; color: var(--muted); }
+
+/* bandeau démo */
+.demo-band { background: var(--ink); color: var(--on-ink); padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; }
+.demo-band b { color: var(--amber); font-family: var(--f-display); font-size: 15px; letter-spacing: .04em; }
+.demo-band .sp { flex: 1; }
+.demo-band button { background: transparent; border: 1px solid #475569; color: var(--on-ink); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; }
+.demo-band button.primary { background: var(--amber); color: #111827; border-color: var(--amber); font-weight: 700; }
+
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100% - 40px); }
+.side { background: var(--surface); border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; }
+@media (min-width: 761px) { .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; } }
+.brand { display: flex; align-items: baseline; gap: 6px; padding: 0 8px 14px; }
+.brand .logo { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: .02em; }
+.brand .logo span { color: var(--accent); }
+.brand .ver { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.company { padding: 0 8px 12px; margin-bottom: 6px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.company b { color: var(--fg); display: block; font-size: 13px; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; font-weight: 500; }
+.nav a:hover { background: var(--surface-2); }
+.nav a.on { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
+.nav a .ic { width: 18px; text-align: center; }
+.nav a .badge { margin-left: auto; background: var(--todo-fg); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 7px; font-weight: 700; }
+.nav .sep { margin: 10px 10px 4px; }
+.side .foot { margin-top: auto; padding: 10px; font-size: 11.5px; color: var(--muted); }
+
+.main { min-width: 0; padding-block: 22px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.main-inner { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.page-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.page-head h1 { font-size: 30px; font-weight: 800; }
+.page-head p { margin: 0; color: var(--muted); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 6px 12px; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.btn.go { background: var(--done-fg); border-color: var(--done-fg); color: #fff; font-weight: 700; }
+:root[data-theme="dark"] .btn.go, :root[data-theme="dark"] .btn.accent { color: #111827; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.go, :root:not([data-theme="light"]) .btn.accent { color: #111827; } }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .5; cursor: default; }
+.search { flex: 1 1 240px; min-width: 0; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 6px 10px; }
+select.sel { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 6px 8px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.pad { padding: 16px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { border: 1px solid transparent; border-bottom: none; background: transparent; padding: 8px 14px; border-radius: 8px 8px 0 0; color: var(--muted); font-weight: 600; }
+.tabs button.on { background: var(--surface); border-color: var(--line); color: var(--fg); margin-bottom: -1px; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.st-todo { background: var(--todo-bg); color: var(--todo-fg); } .st-prog { background: var(--prog-bg); color: var(--prog-fg); }
+.st-wait { background: var(--wait-bg); color: var(--wait-fg); } .st-done { background: var(--done-bg); color: var(--done-fg); }
+.st-off { background: var(--off-bg); color: var(--off-fg); }
+.new-tag { background: var(--alert-line); color: #fff; border-radius: 4px; padding: 0 5px; font-size: 10.5px; font-weight: 800; letter-spacing: .05em; }
+
+/* tableau de bord */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border-left: 5px solid var(--line-strong); }
+.kpi .n { font-family: var(--f-display); font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi .l { color: var(--muted); font-size: 12.5px; }
+.kpi.todo { border-left-color: var(--todo-fg); } .kpi.prog { border-left-color: var(--prog-fg); }
+.kpi.wait { border-left-color: var(--wait-fg); } .kpi.done { border-left-color: var(--done-fg); }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+.list { display: flex; flex-direction: column; }
+.list .row { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); cursor: pointer; }
+.list .row:hover { background: var(--surface-2); }
+.list .row .grow { flex: 1; min-width: 0; }
+.list .row .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list h2 { font-size: 19px; padding: 14px 16px 10px; }
+.intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 18px 20px;
+  background: linear-gradient(100deg, var(--ink) 0%, var(--ink-2) 100%); color: var(--on-ink); border-radius: var(--radius); }
+.intro h2 { font-size: 24px; color: var(--on-ink); }
+.intro p { margin: 6px 0 0; color: var(--on-ink-muted); max-width: 70ch; }
+.intro .btn.accent { color: #111827; background: var(--amber); border-color: var(--amber); }
+.flow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--on-ink-muted); align-items: center; }
+.flow span.s { border: 1px solid #475569; border-radius: 999px; padding: 2px 10px; color: var(--on-ink); }
+
+/* demandes : tableau de suivi + aperçu */
+.board-wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.col { border-radius: var(--radius); padding: 8px; min-height: 420px; border-top: 4px solid; display: flex; flex-direction: column; gap: 8px; }
+.col.todo { background: color-mix(in srgb, var(--todo-bg) 55%, var(--bg)); border-color: var(--todo-fg); }
+.col.prog { background: color-mix(in srgb, var(--prog-bg) 55%, var(--bg)); border-color: var(--prog-fg); }
+.col.wait { background: color-mix(in srgb, var(--wait-bg) 55%, var(--bg)); border-color: var(--wait-fg); }
+.col-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; padding: 2px 4px; }
+.col-head .cnt { background: var(--surface); border-radius: 6px; padding: 0 8px; font-size: 12px; }
+.rcard { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line-strong); border-radius: 8px; padding: 9px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; text-align: left; }
+.rcard:hover { border-color: var(--accent); }
+.rcard.sel { outline: 2px solid var(--accent); }
+.rcard .top { display: flex; justify-content: space-between; gap: 6px; font-size: 11.5px; color: var(--muted); }
+.rcard .top b { color: var(--fg); font-family: var(--f-mono); font-size: 11.5px; }
+.rcard .route { font-weight: 700; font-size: 14px; }
+.rcard .route .arr { color: var(--accent); }
+.rcard .co { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rcard .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.mini { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); }
+.mini.msg { background: var(--note-bg); border-color: var(--note-line); color: var(--fg); font-weight: 700; }
+.empty { color: var(--muted); text-align: center; padding: 22px 6px; font-size: 13px; }
+
+/* fiche résumé (aperçu et fiche) */
+.ov { display: flex; flex-direction: column; gap: 10px; }
+.ov-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.ov-head .ref { color: var(--muted); font-weight: 600; font-size: 12.5px; font-family: var(--f-mono); }
+.ov-head h3 { font-size: 21px; font-weight: 800; }
+.routecard { background: linear-gradient(90deg, var(--ink), var(--ink-2)); border-radius: 12px; padding: 14px 16px; color: var(--on-ink); display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 10px; align-items: center; }
+.routecard .cap { color: var(--amber); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.routecard .city { font-family: var(--f-display); font-size: 25px; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
+.routecard .det { color: var(--on-ink-muted); font-size: 12px; }
+.routecard .r { text-align: right; } .routecard .r .cap { color: var(--on-ink-muted); }
+.routecard .mid { font-size: 22px; color: var(--amber); }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+.tile .v { font-family: var(--f-display); font-size: 21px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.tile .d { color: var(--muted); font-size: 12px; }
+.tile.urg-std .v { color: var(--done-fg); } .tile.urg-std { background: color-mix(in srgb, var(--done-bg) 60%, var(--surface)); border-color: var(--done-fg); }
+.tile.urg-exp .v { color: var(--todo-fg); } .tile.urg-exp { background: color-mix(in srgb, var(--todo-bg) 60%, var(--surface)); border-color: var(--todo-fg); }
+.tile.val-missing .v { color: var(--note-line); }
+[data-zone] { cursor: pointer; }
+[data-zone]:hover { border-color: var(--accent); }
+.pk { border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 9px 12px; }
+.pk table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pk th { text-align: left; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px 6px 2px 0; }
+.pk td { padding: 2px 6px 2px 0; font-variant-numeric: tabular-nums; }
+.pk .tot { font-family: var(--f-display); font-weight: 800; font-size: 16px; }
+.notices { border: 2px solid var(--note-line); border-left-width: 8px; background: var(--note-bg); border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.notices.alert { border-color: var(--alert-line); background: var(--alert-bg); }
+.notice .h { font-weight: 700; font-size: 12.5px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.notice .x { white-space: pre-wrap; }
+.dossier { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 9px 12px; }
+.files { display: flex; flex-wrap: wrap; gap: 8px; }
+.file { width: 104px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 8px 6px; text-align: center; font-size: 11px; cursor: pointer; background: var(--surface); }
+.file:hover { border-color: var(--accent); }
+.file .ext { display: inline-block; margin: 0 auto 4px; width: 34px; height: 40px; border-radius: 4px; position: relative; background: var(--surface-2); border: 1px solid var(--line-strong); }
+.file .ext span { position: absolute; left: -4px; right: -4px; bottom: 5px; background: #dc2626; color: #fff; font-size: 9px; font-weight: 800; border-radius: 2px; }
+.file .ext.xls span { background: #15803d; } .file .ext.img span { background: #7c3aed; } .file .ext.doc span { background: #1d4ed8; }
+.file .nm { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hint { font-size: 12px; color: var(--muted); }
+
+/* liste complète */
+.state-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.state-tile { border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; background: var(--surface); text-align: left; border-left: 5px solid; }
+.state-tile .n { font-family: var(--f-display); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.state-tile.on { outline: 2px solid var(--accent); }
+.tablewrap { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+table.grid td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.grid tr.click { cursor: pointer; } table.grid tr.click:hover td { background: var(--surface-2); }
+.bar { height: 7px; border-radius: 99px; background: var(--line); overflow: hidden; min-width: 90px; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.link { color: var(--accent-strong); text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; font-weight: 600; }
+
+/* fiche de la demande (fenêtre) */
+.modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 40; display: flex; align-items: flex-start; justify-content: center; overflow: auto;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+.modal { width: min(1380px, 100%); background: var(--bg); border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.35); overflow: hidden; }
+.modal-title { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.modal-title b { font-family: var(--f-mono); }
+.modal-title .sp { flex: 1; }
+.modal-body { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr); gap: 16px; padding: 16px; }
+.right { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.right-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.right-head h3 { font-size: 21px; }
+.right-head .next { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.right-head .next b { color: var(--accent-strong); }
+.step { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.step > button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: none; background: transparent; text-align: left; }
+.step .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; flex: none; background: var(--off-bg); color: var(--off-fg); }
+.step.done .dot { background: var(--done-bg); color: var(--done-fg); }
+.step.cur { border-color: var(--accent); }
+.step.cur .dot { background: var(--accent); color: #fff; }
+.step .ttl { font-weight: 700; }
+.step .inf { margin-left: auto; color: var(--muted); font-size: 12px; text-align: right; }
+.step .body { padding: 2px 14px 14px 50px; display: flex; flex-direction: column; gap: 10px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 12px; }
+.fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fld label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.fld input, .fld select, .fld textarea { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 6px 8px; min-width: 0; }
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 60% { box-shadow: 0 0 0 3px var(--amber); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.mail { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.mail .mh { background: var(--surface-2); padding: 8px 12px; font-size: 12.5px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 70px minmax(0,1fr); gap: 2px 8px; }
+.mail .mh span:nth-child(odd) { color: var(--muted); }
+.mail pre { margin: 0; padding: 12px; white-space: pre-wrap; font-family: var(--f-body); font-size: 13px; }
+.mail .sig { padding: 0 12px 12px; font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin: 0 12px; }
+.draft-tag { background: var(--note-bg); color: var(--note-line); border: 1px solid var(--note-line); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+
+/* alerte GoldLog */
+.alert-win { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100% - 32px)); z-index: 60;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
+.alert-win .ah { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--ink); color: var(--on-ink); font-weight: 700; }
+.alert-win .ah .sp { flex: 1; }
+.alert-win .ah button { background: transparent; border: none; color: var(--on-ink); font-size: 18px; line-height: 1; }
+.alert-win .ab { max-height: 50vh; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.acard { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; display: flex; flex-direction: column; gap: 6px; border-left: 5px solid var(--accent); }
+.acard.upd { border-left-color: var(--info-line); }
+.acard .chg { background: var(--info-bg); color: var(--info-fg); border-radius: 6px; padding: 6px 8px; font-weight: 600; font-size: 12.5px; white-space: pre-wrap; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(20px, env(safe-area-inset-bottom, 0px)); z-index: 70; background: var(--ink); color: var(--on-ink); padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow); max-width: calc(100% - 32px); font-size: 13.5px; }
+.confirm { border: 1px solid var(--done-fg); background: var(--done-bg); border-radius: 8px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* packing lists */
+.prog-cell { display: flex; align-items: center; gap: 8px; }
+
+/* déchets */
+.waste-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.wcard { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.wcard.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.wcard .art { height: 78px; display: grid; place-items: center; background: var(--surface-2); border-radius: 8px; }
+.wcard .art svg { height: 70px; width: auto; }
+.wcard .nm { font-weight: 700; }
+.wcard .ds { color: var(--muted); font-size: 12px; min-height: 2.6em; }
+.counter { display: flex; align-items: center; gap: 6px; }
+.counter button { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 700; }
+.counter b { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; font-size: 16px; }
+.wcard select { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px; padding: 4px 6px; font-size: 12.5px; min-width: 0; }
+.section-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.section-title h2 { font-size: 20px; }
+
+/* portail demandeur */
+.portal { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.portal-top { background: var(--ink); color: var(--on-ink); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.portal-top b span { color: var(--amber); }
+.portal-in { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.pstep { display: flex; gap: 10px; align-items: center; }
+.pstep .n { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 800; flex: none; }
+.pstep h3 { font-size: 18px; }
+.choice { display: flex; flex-wrap: wrap; gap: 6px; }
+.choice label { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 10px; background: var(--surface-2); cursor: pointer; font-size: 13px; }
+.choice input:checked + span { font-weight: 700; color: var(--accent-strong); }
+.remarks { display: flex; flex-direction: column; gap: 8px; }
+.remark { background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 8px 10px; }
+.portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+
+/* visite guidée */
+.tour { position: fixed; z-index: 80; width: min(360px, calc(100% - 32px)); background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.35); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.tour h4 { margin: 0; font-family: var(--f-display); font-size: 18px; }
+.tour p { margin: 0; }
+.tour .tb { display: flex; gap: 8px; align-items: center; }
+.tour .tb .sp { flex: 1; }
+.tour-focus { position: relative; z-index: 1; box-shadow: 0 0 0 4px var(--amber) !important; border-radius: 10px; }
+
+/* accueil : tuiles par thème */
+.home-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 18px 22px; }
+.help-strip { background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; }
+.home-sections { display: flex; flex-direction: column; gap: 18px; }
+.hsec { display: flex; flex-direction: column; gap: 10px; border-radius: 12px; }
+.hsec.edit { border: 1px dashed var(--line-strong); padding: 10px; }
+.hsec.drop { background: var(--accent-soft); }
+.hsec-title { font-family: var(--f-body); font-size: 13px; font-weight: 800; letter-spacing: .12em; }
+.hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.htile { position: relative; display: flex; gap: 14px; align-items: flex-start; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); cursor: pointer; min-width: 0; }
+.htile:hover { border-color: var(--accent); transform: translateY(-1px); }
+.htile.edit { cursor: grab; } .htile.dragging { opacity: .4; }
+.htile.ghost { opacity: .7; box-shadow: none; }
+.hico { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: var(--surface-2); }
+.htx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.htx b { font-size: 15px; }
+.htx .todo { align-self: flex-start; margin-top: 4px; background: var(--todo-bg); color: var(--todo-fg); border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 700; }
+.hide-btn { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 6px; width: 24px; height: 24px; line-height: 1; font-size: 12px; }
+.grip { position: absolute; bottom: 6px; right: 10px; color: var(--muted); }
+.nav .lb { min-width: 0; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+.pillbtn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
+.pillbtn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); font-weight: 700; }
+.trace-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.timeline { list-style: none; margin: 10px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--accent); display: flex; flex-direction: column; gap: 8px; }
+.timeline li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; position: relative; }
+.timeline li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.share { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px; gap: 10px; align-items: center; padding: 6px 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.settings { display: flex; flex-direction: column; gap: 12px; }
+.settings h2 { font-size: 19px; margin-bottom: 10px; }
+.bc-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: center; }
+.bc-status .big { font-family: var(--f-display); font-size: 20px; font-weight: 700; }
+@media (max-width: 1100px) {
+  .board-wrap, .modal-body, .home-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { border-right: none; border-bottom: 1px solid var(--line); padding: 10px; }
+  .brand { padding-bottom: 6px; } .company, .side .foot, .nav .sep { display: none; }
+  .nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .nav a { padding: 6px 9px; font-size: 13px; white-space: nowrap; flex: none; }
+  .hgrid { grid-template-columns: minmax(0, 1fr); }
+  .share { grid-template-columns: 90px minmax(0, 1fr) 80px; }
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .col { min-height: 0; }
+  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .routecard { grid-template-columns: minmax(0, 1fr); } .routecard .r { text-align: left; } .routecard .mid { display: none; }
+  .intro { grid-template-columns: minmax(0, 1fr); }
+  .step .body { padding-left: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
+</style>
+
+
+<style>html,body{margin:0} :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="demo-band" id="band">
+  <b>DÉMO</b>
+  <span>Version de présentation : société, personnes, produits et chiffres sont fictifs. Aucune donnée n'est envoyée.</span>
+  <span class="sp"></span>
+  <button class="primary" id="btn-tour" type="button">▶ Visite guidée</button>
+  <button id="btn-sim" type="button">Simuler une remarque d'un demandeur</button>
+  <button id="btn-reset" type="button">Réinitialiser la démo</button>
+</div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo">Gold<span>Log</span></span><span class="ver">v2.32</span></div>
+    <div class="company"><b>Alpenklang SA</b>Logistique · Carouge (GE)</div>
+    <nav class="nav" id="nav" aria-label="Modules"></nav>
+    <div class="foot">GoldLog prépare les brouillons de mails : rien ne part sans relecture.</div>
+  </aside>
+  <main class="main"><div class="main-inner" id="view"></div></main>
+</div>
+<div id="layer"></div>
+
+<script>
+(function () {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const chf = (n, cur = "CHF") => n == null ? "À déterminer" : n.toLocaleString("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ | /g, "'") + " " + cur;
+const kg = (n) => (Math.round(n * 10) / 10).toLocaleString("fr-CH").replace(/ | /g, "'") + " kg";
+const today = new Date();
+const dfmt = (d) => d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+const dshort = (d) => d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" });
+const daysAgo = (n, h = 9, m = 0) => { const d = new Date(today); d.setDate(d.getDate() - n); d.setHours(h, m, 0, 0); return d; };
+const inDays = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d; };
+const nowStr = () => dfmt(new Date()) + " " + new Date().toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
+
+const STATES = { "à traiter": ["À traiter", "st-todo", "todo"], "en cours": ["En cours", "st-prog", "prog"],
+  "attente enlèvement": ["Attente enlèvement", "st-wait", "wait"], "expédiée": ["Expédiée", "st-done", "done"], "annulée": ["Annulée", "st-off", "off"] };
+const MODE_ICON = { Route: "🚚", Aérien: "✈", Maritime: "🚢", Express: "⚡" };
+const SIGN = "Avec mes meilleures salutations / Best regards\nLéa Martin\nResponsable logistique · Alpenklang SA\nChemin des Artisans 14 · 1227 Carouge · Suisse\n+41 22 000 00 00";
+
+/* ───────────────────────── données fictives ───────────────────────── */
+function seed() {
+  const ALP = { company: "Alpenklang SA", city: "Carouge", country: "Suisse" };
+  return {
+    seq: 148,
+    requests: [
+      { id: 1, number: "DT-2026-0147", kind: "Export", op: "Vente", from: ALP, to: { company: "Studio Nordlicht GmbH", city: "Hambourg", country: "Allemagne", address: "Speicherstraße 21, 20457 Hambourg" },
+        mode: "Route", urgency: "Standard", incoterm: "DAP", requester: "Nadia Keller", submitted: daysAgo(0, 8, 42), state: "à traiter",
+        goods: [{ qty: 4, label: "Amplificateur de puissance AK-500", nature: "Amplificateur audio", hs: "8518.40" }, { qty: 8, label: "Câble haut-parleur AK-Link 3 m", nature: "Câbles et connectique", hs: "8544.42" }],
+        value: 38640, packages: [{ count: 2, type: "Palette", dims: [120, 80, 95], kg: 186 }], files: ["Facture_proforma_SN-2291.pdf", "Liste_colisage_SN-2291.xlsx"],
+        notices: [{ title: "Commentaire de la demande", text: "Livraison avant le 12 novembre impérativement : salon à Hambourg. Quai de livraison fermé le vendredi.", at: dfmt(daysAgo(0)), isNew: true }], pl: null },
+      { id: 2, number: "DT-2026-0146", kind: "Import", op: "Achat", from: { company: "Precision Enclosures Ltd", city: "Brno", country: "Tchéquie" }, to: ALP,
+        mode: "Route", urgency: "Économique", incoterm: "FCA", requester: "Marco Bianchi", submitted: daysAgo(1, 15, 8), state: "à traiter",
+        goods: [{ qty: 120, label: "Boîtier aluminium anodisé BX-12", nature: "Pièces mécaniques en aluminium", hs: "à déterminer" }],
+        value: null, packages: [{ count: 3, type: "Palette", dims: [120, 80, 110], kg: 240 }], files: ["Confirmation_commande_PO-7781.pdf"], notices: [], pl: null },
+      { id: 3, number: "DT-2026-0145", kind: "Export", op: "Vente", from: ALP, to: { company: "Tokyo Listening Lab KK", city: "Tokyo", country: "Japon", address: "2-11-3 Jingumae, Shibuya-ku, 150-0001 Tokyo" },
+        mode: "Aérien", urgency: "Express", incoterm: "DAP", requester: "Thomas Rey", submitted: daysAgo(1, 10, 15), state: "en cours",
+        goods: [{ qty: 2, label: "Lecteur réseau AK-Stream", nature: "Lecteur ou source audio", hs: "8519.81" }, { qty: 2, label: "Préamplificateur AK-P2", nature: "Amplificateur audio", hs: "8543.70" }],
+        value: 22400, packages: [{ count: 2, type: "Flight case", dims: [62, 48, 34], kg: 21.5 }], files: ["Facture_TLL-0092.pdf", "Fiche_technique_AK-Stream.pdf"],
+        quotes: [{ carrier: "AirFret Alpin", amount: 1184, transit: "3 jours", state: "Soumise au demandeur" }, { carrier: "SwiftCargo", amount: 1320, transit: "2 jours", state: "Reçue" }],
+        quoteRequested: daysAgo(1, 11, 2), notices: [], pl: "PL-20261029-004" },
+      { id: 4, number: "DT-2026-0144", kind: "Export", op: "Prêt / démonstration", from: ALP, to: { company: "Maison Sonore SARL", city: "Lyon", country: "France", address: "18 quai Saint-Vincent, 69001 Lyon" },
+        mode: "Route", urgency: "Standard", incoterm: "DAP", requester: "Nadia Keller", submitted: daysAgo(2, 9, 30), state: "en cours",
+        goods: [{ qty: 1, label: "Paire d'enceintes Monolith S", nature: "Enceintes acoustiques", hs: "8518.22" }],
+        value: 14900, packages: [{ count: 2, type: "Colis", dims: [128, 46, 52], kg: 58 }], files: ["Proforma_pret_MS-04.pdf"],
+        quotes: [{ carrier: "Transports Léman Express", amount: 465, transit: "24 h", state: "Retenue" }], quoteRequested: daysAgo(2, 10, 0),
+        notices: [{ title: "Remarque de Nadia Keller", text: "Le client souhaite une livraison sur rendez-vous : contact sur place Hugo Faure.", at: dfmt(daysAgo(1)), isNew: false }], pl: "PL-20261028-002" },
+      { id: 5, number: "DT-2026-0143", kind: "Export", op: "Vente", from: ALP, to: { company: "Harbor Hi-Fi Inc.", city: "Boston", country: "États-Unis", address: "410 Atlantic Ave, Boston MA 02110" },
+        mode: "Maritime", urgency: "Économique", incoterm: "DAP", requester: "Thomas Rey", submitted: daysAgo(6, 14, 20), state: "attente enlèvement",
+        goods: [{ qty: 24, label: "Amplificateur intégré AK-300", nature: "Amplificateur audio", hs: "8518.40" }],
+        value: 96000, packages: [{ count: 4, type: "Palette", dims: [120, 100, 120], kg: 412 }], files: ["Facture_HHF-3307.pdf", "Liste_colisage_HHF-3307.xlsx", "Certificat_origine.pdf"],
+        quotes: [{ carrier: "Rhône Cargo Maritime", amount: 2860, transit: "21 jours", state: "Validée" }], departure: inDays(1), tracking: "RCM-55120-8", notices: [], pl: "PL-20261023-001" },
+      { id: 6, number: "DT-2026-0142", kind: "Export", op: "Réparation / retour", from: ALP, to: { company: "Klangwerk Wien OG", city: "Vienne", country: "Autriche" },
+        mode: "Express", urgency: "Express", incoterm: "DAP", requester: "Marco Bianchi", submitted: daysAgo(3, 11, 0), state: "attente enlèvement",
+        goods: [{ qty: 1, label: "Carte DAC réparée AK-D1", nature: "Pièce électronique", hs: "8543.90" }], value: 850, packages: [{ count: 1, type: "Colis", dims: [40, 30, 20], kg: 4.2 }],
+        files: ["Facture_reparation_R-118.pdf"], quotes: [{ carrier: "SwiftCargo", amount: 96.4, transit: "24 h", state: "Validée" }], departure: today, tracking: "SC 4471 9902 31",
+        notices: [], pl: "PL-20261027-003" },
+      { id: 7, number: "DT-2026-0139", kind: "Import", op: "Achat", from: { company: "Nordic Wood Works AB", city: "Göteborg", country: "Suède" }, to: ALP,
+        mode: "Route", urgency: "Standard", incoterm: "EXW", requester: "Nadia Keller", submitted: daysAgo(9), state: "expédiée",
+        goods: [{ qty: 40, label: "Façade bois noyer pour enceinte", nature: "Ouvrages en bois", hs: "4421.99" }], value: 6200, packages: [{ count: 1, type: "Palette", dims: [120, 80, 90], kg: 160 }],
+        files: ["Facture_NWW-221.pdf"], quotes: [{ carrier: "Transports Léman Express", amount: 780, transit: "4 jours", state: "Validée" }], departure: daysAgo(5), tracking: "TLE-88213", notices: [], pl: null },
+      { id: 8, number: "DT-2026-0137", kind: "Export", op: "Vente", from: ALP, to: { company: "Sound Atelier Milano", city: "Milan", country: "Italie" },
+        mode: "Route", urgency: "Économique", incoterm: "DAP", requester: "Thomas Rey", submitted: daysAgo(12), state: "annulée",
+        goods: [{ qty: 6, label: "Câble secteur AK-Power", nature: "Câbles et connectique", hs: "8544.42" }], value: 1140, packages: [{ count: 1, type: "Colis", dims: [50, 40, 30], kg: 9 }],
+        files: [], notices: [{ title: "Demande annulée par le demandeur", text: "Commande regroupée avec la livraison de décembre.", at: dfmt(daysAgo(10)), isNew: false, alert: true }], pl: null },
+    ],
+    packingLists: [
+      { ref: "PL-20261029-004", title: "Tokyo Listening Lab · AK-Stream + AK-P2", state: "draft", dest: "Tokyo, Japon", client: "Tokyo Listening Lab KK", mode: "Aérien", items: 4, packed: 2, packages: 2, kg: 43, carrier: "", departure: null, request: "DT-2026-0145", docs: 3 },
+      { ref: "PL-20261028-002", title: "Maison Sonore · prêt Monolith S", state: "ready", dest: "Lyon, France", client: "Maison Sonore SARL", mode: "Route", items: 1, packed: 1, packages: 2, kg: 116, carrier: "Transports Léman Express", departure: null, request: "DT-2026-0144", docs: 2 },
+      { ref: "PL-20261027-003", title: "Klangwerk Wien · retour DAC réparé", state: "waiting", dest: "Vienne, Autriche", client: "Klangwerk Wien OG", mode: "Express", items: 1, packed: 1, packages: 1, kg: 4.2, carrier: "SwiftCargo", departure: today, request: "DT-2026-0142", docs: 4 },
+      { ref: "PL-20261023-001", title: "Harbor Hi-Fi · 24 × AK-300", state: "waiting", dest: "Boston, États-Unis", client: "Harbor Hi-Fi Inc.", mode: "Maritime", items: 24, packed: 24, packages: 4, kg: 1648, carrier: "Rhône Cargo Maritime", departure: inDays(1), request: "DT-2026-0143", docs: 6 },
+      { ref: "PL-20261021-002", title: "Studio Lumen · enceintes de studio", state: "gone", dest: "Bruxelles, Belgique", client: "Studio Lumen SRL", mode: "Route", items: 6, packed: 6, packages: 3, kg: 210, carrier: "Transports Léman Express", departure: daysAgo(6), request: null, docs: 5 },
+      { ref: "PL-20261020-001", title: "Echo Bay Audio · pièces détachées", state: "gone", dest: "Toronto, Canada", client: "Echo Bay Audio Ltd", mode: "Aérien", items: 12, packed: 12, packages: 1, kg: 18.5, carrier: "AirFret Alpin", departure: daysAgo(8), request: null, docs: 4 },
+    ],
+    waste: { lines: {}, history: [
+      { date: dfmt(daysAgo(7)), lines: "2 × Conteneur 770 L : Carton / papier · 6 palettes bois en pile", state: "Enlevée" },
+      { date: dfmt(daysAgo(21)), lines: "1 × Palox ADR 630 L (vert) : Résine / durcisseur", state: "Enlevée" },
+    ] },
+    alerts: [],
+    portalRemarks: { "DT-2026-0144": [{ at: dfmt(daysAgo(1)) + " 16:05", by: "Nadia Keller", text: "Le client souhaite une livraison sur rendez-vous : contact sur place Hugo Faure.", files: [] }] },
+  };
+}
+let S = { ...seed(), ...seedMore() };
+let ui = { view: "accueil", tab: "board", selected: 1, listFilter: "", search: "", modal: null, modalTab: "suivi", openStep: null, mail: null, confirmDepart: null, portalTab: "form", portalReq: "DT-2026-0144", wasteMail: false,
+  layout: null, editing: false, dashFilter: "", rmaFilter: "", groupSel: [], traceQ: "", refQ: {}, refNew: null, bcBusy: false, restore: null, logMod: "" };
+
+/* ───────────────────────── outils ───────────────────────── */
+const reqById = (id) => S.requests.find((r) => r.id === id);
+const reqByNumber = (n) => S.requests.find((r) => r.number === n);
+const totals = (r) => ({ count: r.packages.reduce((t, p) => t + p.count, 0), weight: r.packages.reduce((t, p) => t + p.count * p.kg, 0),
+  volume: r.packages.reduce((t, p) => t + p.count * p.dims[0] * p.dims[1] * p.dims[2] / 1e6, 0) });
+const unread = (r) => r.notices.some((n) => n.isNew);
+const stateChip = (st) => `<span class="chip ${STATES[st][1]}">● ${esc(STATES[st][0])}</span>`;
+const fileExt = (n) => { const e = n.split(".").pop().toLowerCase(); return e === "xlsx" ? "xls" : ["png", "jpg"].includes(e) ? "img" : e === "docx" ? "doc" : ""; };
+function toast(text) { $$(".toast").forEach((x) => x.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = text; document.body.appendChild(t); setTimeout(() => t.remove(), 3600); }
+
+/* ───────────────────────── routeur ───────────────────────── */
+const VIEWS = { accueil: viewHome, demandes: viewRequests, packing: viewPacking, dechets: viewWaste, portail: viewPortal,
+  rma: viewRma, groupage: viewGroupage, tableau: viewDashboard, tracabilite: viewTrace, stats: viewStats,
+  clients: () => viewRef("clients"), destinataires: () => viewRef("destinataires"), produits: () => viewRef("produits"),
+  emballages: () => viewRef("emballages"), transporteurs: () => viewRef("transporteurs"),
+  parametrage: viewSettings, bc: viewBc, sauvegardes: viewBackups, historique: viewLog };
+function go(view) { if (location.hash !== "#" + view) location.hash = view; else render(); }
+function readHash() { const h = location.hash.replace("#", ""); ui.view = VIEWS[h] ? h : "accueil"; }
+window.addEventListener("hashchange", () => { readHash(); render(); window.scrollTo(0, 0); });
+function render() {
+  $("#nav").innerHTML = navHtml();
+  $$("#nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === ui.view));
+  const on = $("#nav a.on"); if (on && matchMedia("(max-width: 760px)").matches) on.scrollIntoView({ block: "nearest", inline: "center" });
+  $("#view").innerHTML = VIEWS[ui.view]();
+  bindView();
+  renderLayer();
+}
+
+/* ───────────────────────── accueil : une icône par fonction, classées par thème ───────────────────────── */
+const MODULES = {
+  rma: ["RMA fournisseurs", "🔁", "Pièces envoyées en réparation, retours et relances", "rma"],
+  packing: ["Packing lists", "📦", "Dossiers d'expédition, colis, documents", "pl"],
+  groupage: ["Expédition groupée", "🧩", "Commandes, reliquats et regroupement d'envois", null],
+  demandes: ["Demandes de transport", "🚚", "Cotations, validation, enlèvements", "dt"],
+  dechets: ["Gestion des déchets", "♻️", "Évacuations, contenants vides et consommables", "dec"],
+  tableau: ["Tableau de bord", "📊", "Tâches du jour, indicateurs et seuils", null],
+  tracabilite: ["Traçabilité", "🔎", "Numéros de série, expéditions, historique produit", null],
+  stats: ["Statistiques", "📈", "Volumes, poids, coûts et tendances", null],
+  clients: ["Clients", "👥", "Carnet d'adresses des clients", null],
+  destinataires: ["Destinataires", "📍", "Adresses de livraison", null],
+  produits: ["Produits", "🎛️", "Catalogue, poids, dimensions, origine", null],
+  emballages: ["Emballages", "🧰", "Flight cases, cartons, palettes", null],
+  transporteurs: ["Transporteurs", "✈️", "Transporteurs et listes d'envoi", null],
+  parametrage: ["Paramétrage", "⚙️", "Portail, messagerie, préférences", null],
+  bc: ["Business Central", "🔗", "Synchronisation des commandes et clients", null],
+  sauvegardes: ["Sauvegardes", "💾", "Copies de la base et restauration", null],
+  historique: ["Historique", "🕘", "Journal des actions", null],
+  portail: ["Portail des demandeurs", "🌐", "Formulaire et suivi côté collègues", null],
+};
+const DEFAULT_LAYOUT = () => ({ sections: [
+  { title: "Opérationnel", color: "#b4902f", tiles: ["rma", "packing", "groupage", "demandes", "dechets"] },
+  { title: "Pilotage", color: "#2563eb", tiles: ["tableau", "tracabilite", "stats"] },
+  { title: "Référentiel", color: "#059669", tiles: ["clients", "destinataires", "produits", "emballages", "transporteurs"] },
+  { title: "Système", color: "#64748b", tiles: ["parametrage", "bc", "sauvegardes", "historique"] },
+], hidden: [] });
+function moduleCounts() {
+  return { dt: S.requests.filter((r) => r.state === "à traiter").length, pl: S.packingLists.filter((p) => p.state === "draft").length,
+    rma: S.rma.filter((x) => x.status === "Relance à faire" || x.status === "Retour reçu").length, dec: S.waste.history.filter((h) => h.state === "Demandée").length };
+}
+function log(module, text) { S.log.unshift({ at: nowStr(), who: "Léa Martin", module, text }); }
+function navHtml() {
+  const counts = moduleCounts();
+  const item = (k) => { const m = MODULES[k]; const n = m[3] ? counts[m[3]] : 0;
+    return `<a href="#${k}" data-view="${k}"><span class="ic">${m[1]}</span><span class="lb">${m[0]}</span>${n ? `<span class="badge">${n}</span>` : ""}</a>`; };
+  return `<a href="#accueil" data-view="accueil"><span class="ic">⌂</span><span class="lb">Accueil</span></a>`
+    + DEFAULT_LAYOUT().sections.map((s) => `<div class="caps sep">${esc(s.title)}</div>` + s.tiles.map(item).join("")).join("")
+    + `<div class="caps sep">Côté demandeurs</div>` + item("portail");
+}
+function viewHome() {
+  if (!ui.layout) ui.layout = DEFAULT_LAYOUT();
+  const L = ui.layout, counts = moduleCounts(), ed = ui.editing;
+  const tile = (k) => { const m = MODULES[k]; const n = m[3] ? counts[m[3]] : 0; const color = L.sections.find((s) => s.tiles.includes(k))?.color || "#b4902f";
+    return `<div class="htile ${ed ? "edit" : ""}" ${ed ? `draggable="true" data-drag="${k}"` : `data-go="${k}" role="link" tabindex="0"`}>
+      <span class="hico" style="background:color-mix(in srgb, ${color} 16%, transparent)">${m[1]}</span>
+      <span class="htx"><b>${esc(m[0])}</b><span class="muted small">${esc(m[2])}</span>${n ? `<span class="todo">${n} à traiter</span>` : ""}</span>
+      ${ed ? `<button class="hide-btn" type="button" data-hide="${k}" title="Masquer la tuile" aria-label="Masquer ${esc(m[0])}">✕</button><span class="grip" aria-hidden="true">⠿</span>` : ""}</div>`; };
+  return `
+  <section class="home-head card" id="tour-home">
+    <div><h1 style="font-size:32px">GoldLog</h1><div class="muted">${today.toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · Alpenklang SA · logistique et entrepôt</div></div>
+    <div class="actions">${ed ? `<button class="btn" type="button" data-act="layout-reset">Rétablir la disposition d'origine</button>` : ""}
+      <button class="btn ${ed ? "accent" : ""}" type="button" data-act="layout-edit">${ed ? "Terminer la personnalisation" : "Personnaliser la page"}</button></div>
+  </section>
+  ${ed ? `<div class="help-strip">Personnalisation : glissez les tuiles où vous voulez, y compris d'un thème à l'autre · ✕ pour masquer une tuile · cliquez une tuile masquée pour la rétablir.</div>` : ""}
+  <div class="home-sections" id="tour-kpis">${L.sections.map((s, i) => `<section class="hsec ${ed ? "edit" : ""}" data-sec="${i}">
+      <h2 class="hsec-title" style="color:color-mix(in srgb, ${s.color} 80%, var(--fg))">${esc(s.title.toUpperCase())}</h2>
+      <div class="hgrid">${s.tiles.map(tile).join("") || '<span class="muted small">Glissez une tuile ici.</span>'}</div></section>`).join("")}
+    ${ed && L.hidden.length ? `<section class="hsec edit"><h2 class="hsec-title muted">TUILES MASQUÉES</h2><div class="hgrid">${L.hidden.map((k) => `<button class="htile ghost" type="button" data-unhide="${k}"><span class="hico">${MODULES[k][1]}</span><span class="htx"><b>${esc(MODULES[k][0])}</b><span class="muted small">Cliquer pour rétablir</span></span></button>`).join("")}</div></section>` : ""}
+  </div>
+  <section class="intro" id="tour-intro">
+    <div><h2>Démonstration avec une société fictive</h2>
+      <p>Chaque tuile ouvre son module. Les demandeurs passent par un portail web, la logistique traite tout dans GoldLog, sans ressaisie.</p>
+      <div class="flow"><span class="s">Demande sur le portail</span>→<span class="s">Alerte dans GoldLog</span>→<span class="s">Cotation transporteurs</span>→<span class="s">Packing list et douane</span>→<span class="s">Départ validé</span></div></div>
+    <button class="btn accent" type="button" data-act="tour">▶ Lancer la visite guidée</button>
+  </section>`;
+}
+
+/* ───────────────────────── tableau de bord ───────────────────────── */
+function viewDashboard() {
+  const c = (st) => S.requests.filter((r) => r.state === st).length;
+  const weekDep = S.packingLists.filter((p) => p.departure && Math.abs((p.departure - today) / 864e5) < 7 && p.state !== "gone").length;
+  const tasks = [];
+  S.requests.filter(unread).forEach((r) => tasks.push({ dom: "dt", open: r.id, t: `${r.number} · nouveau message du demandeur`, d: r.notices.find((n) => n.isNew).text, chip: '<span class="new-tag">NOUVEAU</span>' }));
+  S.requests.filter((r) => r.state === "à traiter").forEach((r) => tasks.push({ dom: "dt", open: r.id, t: `${r.number} · demander une cotation`, d: `${r.kind} ${r.from.city} → ${r.to.city} · reçue de ${r.requester}`, chip: stateChip(r.state) }));
+  S.requests.filter((r) => r.state === "en cours" && r.quotes && r.quotes.some((q) => q.state === "Soumise au demandeur")).forEach((r) => tasks.push({ dom: "dt", open: r.id, t: `${r.number} · tarif soumis au demandeur`, d: `${r.requester} doit valider l'offre ${r.quotes[0].carrier}`, chip: stateChip(r.state) }));
+  S.requests.filter((r) => r.state === "attente enlèvement").forEach((r) => tasks.push({ dom: "dt", open: r.id, t: `${r.number} · départ ${r.departure && r.departure.toDateString() === today.toDateString() ? "aujourd'hui" : "le " + dshort(r.departure)}`, d: `${(r.quotes || [{}])[0].carrier || ""} · valider le départ après l'enlèvement`, chip: stateChip(r.state) }));
+  S.packingLists.filter((p) => p.state === "draft").forEach((p) => tasks.push({ dom: "pl", go: "packing", t: `${p.ref} · conditionnement ${p.packed}/${p.items}`, d: p.title, chip: '<span class="chip st-todo">À conditionner</span>' }));
+  S.rma.filter((x) => x.status === "Relance à faire" || x.status === "Retour reçu").forEach((x) => tasks.push({ dom: "rma", go: "rma", t: `${x.ref} · ${x.status.toLowerCase()}`, d: `${x.item} · ${x.supplier}`, chip: `<span class="chip ${x.status === "Retour reçu" ? "st-done" : "st-todo"}">${esc(x.status)}</span>` }));
+  S.waste.history.filter((h) => h.state === "Demandée").forEach((h) => tasks.push({ dom: "dec", go: "dechets", t: `Enlèvement de déchets demandé le ${h.date}`, d: h.lines, chip: '<span class="chip st-prog">Demandée</span>' }));
+  const f = ui.dashFilter;
+  const shown = tasks.filter((t) => !f || t.dom === f);
+  const doms = [["", "Toutes"], ["dt", "Transport"], ["pl", "Packing lists"], ["rma", "RMA"], ["dec", "Déchets"]];
+  return `<div class="page-head"><h1>Tableau de bord</h1><p>Tâches du jour, indicateurs et seuils.</p></div>
+  <div class="kpis">
+    <button class="kpi todo" type="button" data-go="demandes"><span class="n">${c("à traiter")}</span><span class="l">Demandes à traiter</span></button>
+    <button class="kpi prog" type="button" data-go="demandes"><span class="n">${c("en cours")}</span><span class="l">Demandes en cours</span></button>
+    <button class="kpi wait" type="button" data-go="demandes"><span class="n">${c("attente enlèvement")}</span><span class="l">En attente d'enlèvement</span></button>
+    <button class="kpi" type="button" data-go="packing"><span class="n">${S.packingLists.filter((p) => p.state === "draft").length}</span><span class="l">Packing lists à conditionner</span></button>
+    <button class="kpi done" type="button" data-go="packing"><span class="n">${weekDep}</span><span class="l">Départs cette semaine</span></button>
+    <button class="kpi" type="button" data-go="rma"><span class="n">${S.rma.filter((x) => x.status !== "Clôturée").length}</span><span class="l">RMA ouvertes</span></button>
+  </div>
+  <div class="home-grid">
+    <div class="card list"><h2>À faire maintenant</h2>
+      <div class="chips-row">${doms.map(([k, l]) => `<button type="button" class="pillbtn ${f === k ? "on" : ""}" data-dash="${k}">${l} <span class="muted">${tasks.filter((t) => !k || t.dom === k).length}</span></button>`).join("")}</div>
+      ${shown.map((t) => `<div class="row" ${t.open ? `data-open="${t.open}"` : `data-go="${t.go}"`} tabindex="0"><div class="grow"><div class="t">${esc(t.t)}</div><div class="muted small">${esc(t.d)}</div></div>${t.chip}</div>`).join("") || '<div class="empty">Rien en attente.</div>'}
+    </div>
+    <div class="card list"><h2>Seuils de suivi</h2>
+      ${[["Demande sans cotation", "2 jours ouvrables", c("à traiter") ? `${c("à traiter")} demande(s)` : "aucune"], ["Tarif sans réponse du demandeur", "3 jours ouvrables", "1 demande"], ["RMA sans retour", "30 jours", `${S.rma.filter((x) => x.status === "Relance à faire").length} RMA`], ["Packing list non conditionnée", "départ dans 2 jours", "1 dossier"]]
+        .map(([a, b, n]) => `<div class="row"><div class="grow"><div class="t">${a}</div><div class="muted small">seuil : ${b}</div></div><span class="small">${n}</span></div>`).join("")}
+      <h2>Départs prévus</h2>
+      ${S.packingLists.filter((p) => p.departure && p.state !== "gone").sort((a, b) => a.departure - b.departure).map((p) => `<div class="row" data-go="packing"><div class="grow"><div class="t">${esc(p.ref)}</div><div class="muted small">${esc(p.title)}</div></div><span class="mono small">${dshort(p.departure)}</span></div>`).join("") || '<div class="empty">Aucun départ planifié.</div>'}
+    </div>
+  </div>`;
+}
+
+/* ───────────────────────── RMA fournisseurs ───────────────────────── */
+const RMA_STATES = { "Envoyée": "st-wait", "En réparation": "st-prog", "Relance à faire": "st-todo", "Retour reçu": "st-done", "Clôturée": "st-off" };
+function viewRma() {
+  const f = ui.rmaFilter;
+  const rows = S.rma.filter((x) => !f || x.status === f);
+  return `<div class="page-head"><h1>RMA fournisseurs</h1><p>Pièces envoyées en réparation chez les fournisseurs, retours attendus et relances.</p></div>
+  <div class="state-tiles">${Object.keys(RMA_STATES).map((st) => `<button type="button" class="state-tile ${f === st ? "on" : ""}" data-rmaf="${st}" style="border-left-color:var(--${RMA_STATES[st].slice(3)}-fg)"><div class="n">${S.rma.filter((x) => x.status === st).length}</div><div class="muted small">${st}</div></button>`).join("")}</div>
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>RMA</th><th>Fournisseur</th><th>Article</th><th>N° de série</th><th>Envoyée le</th><th>Retour prévu</th><th>Statut</th><th></th></tr></thead><tbody>
+  ${rows.map((x, i) => `<tr><td class="mono"><b>${esc(x.ref)}</b></td><td>${esc(x.supplier)}</td><td>${esc(x.item)}<div class="muted small">${esc(x.issue)}</div></td><td class="mono">${esc(x.sn)}</td><td class="num">${esc(x.sent)}</td><td class="num">${esc(x.due)}</td>
+    <td><span class="chip ${RMA_STATES[x.status]}">${esc(x.status)}</span></td>
+    <td><div class="actions">${x.status === "Relance à faire" || x.status === "Envoyée" || x.status === "En réparation" ? `<button class="btn" type="button" data-rma="remind" data-i="${S.rma.indexOf(x)}">✉ Relancer</button>` : ""}
+      ${x.status !== "Retour reçu" && x.status !== "Clôturée" ? `<button class="btn" type="button" data-rma="back" data-i="${S.rma.indexOf(x)}">Retour reçu</button>` : ""}
+      ${x.status === "Retour reçu" ? `<button class="btn go" type="button" data-rma="close" data-i="${S.rma.indexOf(x)}">Clôturer</button>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="8" class="empty">Aucune RMA pour ce filtre.</td></tr>'}
+  </tbody></table></div>
+  <div class="hint">Les fournisseurs suivent leurs RMA sur le portail (lien personnel) : ils y indiquent la date de retour et le diagnostic.</div>`;
+}
+
+/* ───────────────────────── expédition groupée ───────────────────────── */
+function viewGroupage() {
+  const sel = ui.groupSel;
+  const chosen = S.orders.filter((o) => sel.includes(o.no));
+  return `<div class="page-head"><h1>Expédition groupée</h1><p>Commandes clients à expédier, reliquats et regroupement en un seul envoi.</p></div>
+  <div class="toolbar"><button class="btn accent" type="button" data-act="group-create" ${chosen.length ? "" : "disabled"}>🧩 Créer l'envoi groupé (${chosen.length})</button><span class="hint">Cochez des commandes d'un même client : GoldLog crée une packing list qui les regroupe.</span></div>
+  <div class="card tablewrap"><table class="grid"><thead><tr><th></th><th>Commande</th><th>Client</th><th>Articles</th><th class="num">Commandé</th><th class="num">Disponible</th><th class="num">Reliquat</th><th>Échéance</th><th>État</th></tr></thead><tbody>
+  ${S.orders.map((o) => `<tr><td><input type="checkbox" data-order="${esc(o.no)}" ${sel.includes(o.no) ? "checked" : ""} ${o.state === "Expédiée" ? "disabled" : ""} aria-label="Choisir ${esc(o.no)}"></td><td class="mono"><b>${esc(o.no)}</b></td><td>${esc(o.client)}</td><td>${esc(o.items)}</td>
+    <td class="num">${o.qty}</td><td class="num">${o.avail}</td><td class="num">${o.qty - o.avail ? `<span class="chip st-prog">${o.qty - o.avail}</span>` : "0"}</td><td class="num">${esc(o.due)}</td><td><span class="chip ${o.state === "Expédiée" ? "st-done" : o.state === "Groupée" ? "st-wait" : "st-off"}">${esc(o.state)}</span></td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+/* ───────────────────────── traçabilité ───────────────────────── */
+function viewTrace() {
+  const q = ui.traceQ.trim().toLowerCase();
+  const hits = S.serials.filter((s) => !q || [s.sn, s.product, ...s.events.map((e) => e.ref)].join(" ").toLowerCase().includes(q));
+  return `<div class="page-head"><h1>Traçabilité</h1><p>Retrouver un appareil par son numéro de série : fabrication, expéditions, retours.</p></div>
+  <div class="toolbar"><input class="search" id="trace-q" type="search" placeholder="N° de série, produit, packing list, RMA… (ex. AK500-26-0117)" value="${esc(ui.traceQ)}"></div>
+  <div class="trace-grid">${hits.map((s) => `<div class="card pad"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b class="mono">${esc(s.sn)}</b><span class="muted">${esc(s.product)}</span></div>
+    <ol class="timeline">${s.events.map((e) => `<li><span class="num small muted">${esc(e.date)}</span><span>${esc(e.label)}</span>${e.ref ? `<span class="mini">${esc(e.ref)}</span>` : ""}</li>`).join("")}</ol></div>`).join("") || '<div class="empty card">Aucun appareil ne correspond.</div>'}</div>`;
+}
+
+/* ───────────────────────── statistiques ───────────────────────── */
+function barChart(data, { unit = "", color = "var(--accent)", label = "" } = {}) {
+  const W = 560, H = 220, L = 46, B = 30, T = 14, R = 10;
+  const max = Math.max(...data.map((d) => d[1])); const step = Math.pow(10, Math.floor(Math.log10(max))) * (max / Math.pow(10, Math.floor(Math.log10(max))) > 5 ? 2 : 1);
+  const top = Math.ceil(max / step) * step; const y = (v) => T + (H - T - B) * (1 - v / top);
+  const bw = (W - L - R) / data.length;
+  let g = ""; for (let v = 0; v <= top; v += step) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v.toLocaleString("fr-CH").replace(/ | /g, "'")}</text>`;
+  data.forEach((d, i) => { const x = L + i * bw + bw * 0.2; g += `<rect x="${x}" y="${y(d[1])}" width="${bw * 0.6}" height="${y(0) - y(d[1])}" rx="3" fill="${color}"><title>${d[0]} : ${d[1]} ${unit}</title></rect>
+    <text x="${x + bw * 0.3}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--muted)">${d[0]}</text>
+    <text x="${x + bw * 0.3}" y="${y(d[1]) - 4}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--fg)">${d[1].toLocaleString("fr-CH").replace(/ | /g, "'")}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" style="width:100%;height:auto">${g}</svg>`;
+}
+function viewStats() {
+  const months = S.stats.months;
+  const modes = S.stats.modes; const total = modes.reduce((t, m) => t + m[1], 0);
+  return `<div class="page-head"><h1>Statistiques</h1><p>Six derniers mois · envois, poids et coûts de transport.</p></div>
+  <div class="kpis"><div class="kpi"><span class="n">${months.reduce((t, m) => t + m[1], 0)}</span><span class="l">Envois sur 6 mois</span></div>
+    <div class="kpi"><span class="n">${(months.reduce((t, m) => t + m[2], 0) / 1000).toFixed(1).replace(".", ",")} t</span><span class="l">Poids expédié</span></div>
+    <div class="kpi"><span class="n">${chf(months.reduce((t, m) => t + m[3], 0)).replace(",00 CHF", "")}</span><span class="l">Coûts de transport (CHF)</span></div>
+    <div class="kpi"><span class="n">${chf(months.reduce((t, m) => t + m[3], 0) / months.reduce((t, m) => t + m[1], 0)).replace(" CHF", "")}</span><span class="l">Coût moyen par envoi (CHF)</span></div></div>
+  <div class="grid2">
+    <div class="card pad"><div class="section-title"><h2>Envois par mois</h2></div>${barChart(months.map((m) => [m[0], m[1]]), { unit: "envois", label: "Envois par mois" })}</div>
+    <div class="card pad"><div class="section-title"><h2>Coûts de transport (CHF)</h2></div>${barChart(months.map((m) => [m[0], m[3]]), { unit: "CHF", color: "var(--info-line)", label: "Coûts par mois" })}</div>
+  </div>
+  <div class="grid2">
+    <div class="card pad"><div class="section-title"><h2>Répartition par mode</h2></div>
+      ${modes.map((m) => `<div class="share"><span>${MODE_ICON[m[0]] || ""} ${m[0]}</span><div class="bar"><i style="width:${(m[1] / total * 100).toFixed(0)}%"></i></div><span class="num small">${m[1]} · ${(m[1] / total * 100).toFixed(0)} %</span></div>`).join("")}</div>
+    <div class="card pad"><div class="section-title"><h2>Principales destinations</h2></div>
+      <table class="grid"><thead><tr><th>Pays</th><th class="num">Envois</th><th class="num">Poids</th></tr></thead><tbody>${S.stats.dest.map((d) => `<tr><td>${d[0]}</td><td class="num">${d[1]}</td><td class="num">${kg(d[2])}</td></tr>`).join("")}</tbody></table></div>
+  </div>`;
+}
+
+/* ───────────────────────── référentiels ───────────────────────── */
+const REF = {
+  clients: { cols: [["name", "Société"], ["contact", "Contact"], ["city", "Ville"], ["country", "Pays"], ["email", "Email"], ["vat", "N° TVA"]] },
+  destinataires: { cols: [["name", "Société"], ["address", "Adresse"], ["city", "Ville"], ["country", "Pays"], ["client", "Client rattaché"]] },
+  produits: { cols: [["ref", "Référence"], ["name", "Désignation"], ["kg", "Poids (kg)"], ["dims", "Dimensions (cm)"], ["hs", "Code HS"], ["origin", "Origine"]] },
+  emballages: { cols: [["name", "Emballage"], ["type", "Type"], ["dims", "Dimensions int. (cm)"], ["tare", "Tare (kg)"], ["stock", "Stock"]] },
+  transporteurs: { cols: [["name", "Transporteur"], ["modes", "Modes"], ["email", "Adresse de cotation"], ["delay", "Réponse moyenne"], ["note", "Remarque"]] },
+};
+function viewRef(key) {
+  const m = MODULES[key], def = REF[key], rows = S.ref[key];
+  const q = (ui.refQ[key] || "").toLowerCase();
+  const shown = rows.filter((r) => !q || Object.values(r).join(" ").toLowerCase().includes(q));
+  return `<div class="page-head"><h1>${m[1]} ${esc(m[0])}</h1><p>${esc(m[2])} · ${rows.length} fiche(s).</p></div>
+  <div class="toolbar"><input class="search" id="ref-q" data-refq="${key}" type="search" placeholder="Rechercher…" value="${esc(ui.refQ[key] || "")}">
+    <button class="btn accent" type="button" data-act="ref-new">+ Nouvelle fiche</button></div>
+  ${ui.refNew === key ? `<form class="card pad" id="ref-form" style="display:flex;flex-direction:column;gap:10px"><div class="form-grid">${def.cols.map(([k, l], i) => `<div class="fld"><label for="rf-${k}">${esc(l)}${i === 0 ? " *" : ""}</label><input id="rf-${k}" name="${k}"></div>`).join("")}</div>
+    <div class="actions"><button class="btn accent" type="submit">Enregistrer</button><button class="btn" type="button" data-act="ref-cancel">Annuler</button></div></form>` : ""}
+  <div class="card tablewrap"><table class="grid"><thead><tr>${def.cols.map(([, l]) => `<th>${esc(l)}</th>`).join("")}</tr></thead><tbody>
+  ${shown.map((r) => `<tr>${def.cols.map(([k], i) => `<td class="${i === 0 ? "" : ""}">${i === 0 ? `<b>${esc(r[k])}</b>${r.pending ? ' <span class="chip st-prog">à valider</span>' : ""}` : esc(r[k] ?? "")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${def.cols.length}" class="empty">Aucune fiche ne correspond.</td></tr>`}
+  </tbody></table></div>
+  ${key === "clients" ? '<div class="hint">Une société saisie par un demandeur sur le portail arrive ici « à valider », avec son adresse complète.</div>' : ""}
+  ${key === "produits" ? '<div class="hint">Le catalogue complète les demandes : poids, dimensions, code HS et origine. La valeur en douane ne vient jamais du catalogue.</div>' : ""}`;
+}
+
+/* ───────────────────────── paramétrage ───────────────────────── */
+function viewSettings() {
+  const P = S.settings;
+  return `<div class="page-head"><h1>Paramétrage</h1><p>Portail, messagerie, préférences.</p></div>
+  <form id="settings-form" class="settings">
+    <section class="card pad"><h2>Société</h2><div class="form-grid">
+      <div class="fld"><label for="st-co">Raison sociale</label><input id="st-co" value="Alpenklang SA"></div><div class="fld"><label for="st-ad">Adresse</label><input id="st-ad" value="Chemin des Artisans 14, 1227 Carouge"></div>
+      <div class="fld"><label for="st-eori">N° EORI</label><input id="st-eori" value="CHE000000000"></div></div></section>
+    <section class="card pad"><h2>Messagerie</h2><div class="form-grid">
+      <div class="fld"><label for="st-mail">Envoi des mails</label><select id="st-mail"><option selected>Brouillon dans Outlook uniquement</option><option>Brouillon, puis envoi après relecture</option></select></div>
+      <div class="fld"><label for="st-quote">Destinataires des demandes de cotation</label><input id="st-quote" value="3 transporteurs par mode"></div></div>
+      <div class="fld" style="margin-top:8px"><label for="st-sign">Signature de tous les brouillons</label><textarea id="st-sign" rows="5">${esc(P.signature)}</textarea></div></section>
+    <section class="card pad"><h2>Portail des demandeurs</h2><div class="form-grid">
+      <div class="fld"><label>Adresse du portail</label><input value="https://portail.alpenklang.example" readonly></div>
+      <div class="fld"><label>État</label><input value="Connecté · version à jour (démo)" readonly></div>
+      <div class="fld"><label for="st-inco">Incoterm proposé par défaut</label><select id="st-inco"><option selected>DAP</option><option>EXW</option><option>FCA</option><option>DDP</option></select></div>
+      <div class="fld"><label for="st-req">Mails aux demandeurs</label><select id="st-req"><option selected>Aucun (suivi sur le portail)</option><option>Accusé de réception et clôture</option></select></div></div></section>
+    <section class="card pad"><h2>Gestion des déchets</h2><div class="form-grid">
+      <div class="fld"><label>Prestataire</label><input value="Eco-Valor Services (fictif)" readonly></div><div class="fld"><label>Adresse de commande</label><input value="enlevements@eco-valor.example" readonly></div>
+      <div class="fld"><label for="st-ex">Échange du contenant vide</label><select id="st-ex"><option selected>Décoché par défaut</option><option>Coché par défaut</option></select></div></div></section>
+    <section class="card pad"><h2>Apparence</h2><div class="choice">${[["", "Comme le système"], ["light", "Clair"], ["dark", "Sombre"]].map(([v, l]) => `<label><input type="radio" name="theme" value="${v}" ${(document.documentElement.dataset.theme || "") === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</div></section>
+    <div class="actions"><button class="btn accent" type="submit">Enregistrer les réglages</button></div>
+  </form>`;
+}
+
+/* ───────────────────────── Business Central ───────────────────────── */
+function viewBc() {
+  return `<div class="page-head"><h1>Business Central</h1><p>Synchronisation des commandes et des clients depuis l'ERP.</p></div>
+  <div class="card pad bc-status"><div><div class="caps">Connexion</div><div class="big">● Connectée <span class="muted small">(démo)</span></div></div>
+    <div><div class="caps">Mode</div><div class="big">Lecture seule</div><div class="muted small">GoldLog n'écrit jamais dans Business Central.</div></div>
+    <div><div class="caps">Dernière synchronisation</div><div class="big num">${esc(S.bc.last)}</div></div>
+    <div class="actions"><button class="btn accent" type="button" data-act="bc-sync" ${ui.bcBusy ? "disabled" : ""}>${ui.bcBusy ? "Synchronisation…" : "⟳ Synchroniser maintenant"}</button></div></div>
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>Heure</th><th>Objet</th><th class="num">Lus</th><th class="num">Nouveaux</th><th>Résultat</th></tr></thead><tbody>
+  ${S.bc.runs.map((r) => `<tr><td class="num">${esc(r.at)}</td><td>${esc(r.what)}</td><td class="num">${r.read}</td><td class="num">${r.added}</td><td><span class="chip st-done">OK</span></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+/* ───────────────────────── sauvegardes ───────────────────────── */
+function viewBackups() {
+  return `<div class="page-head"><h1>Sauvegardes</h1><p>Copies automatiques de la base chaque jour, et à la demande.</p></div>
+  <div class="toolbar"><button class="btn accent" type="button" data-act="backup-now">💾 Créer une sauvegarde</button><span class="hint">Conservation : 30 jours glissants, puis une par mois.</span></div>
+  ${ui.restore != null ? `<div class="confirm"><span>Restaurer la sauvegarde du <b>${esc(S.backups[ui.restore].at)}</b> ? La base actuelle est d'abord sauvegardée.</span><button class="btn go" type="button" data-act="restore-yes">Restaurer</button><button class="btn" type="button" data-act="restore-no">Annuler</button></div>` : ""}
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Fichier</th><th class="num">Taille</th><th>Origine</th><th></th></tr></thead><tbody>
+  ${S.backups.map((b, i) => `<tr><td class="num">${esc(b.at)}</td><td class="mono small">${esc(b.file)}</td><td class="num">${esc(b.size)}</td><td>${esc(b.kind)}</td><td><button class="btn" type="button" data-restore="${i}">Restaurer…</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+/* ───────────────────────── historique ───────────────────────── */
+function viewLog() {
+  const mods = [...new Set(S.log.map((l) => l.module))];
+  const rows = S.log.filter((l) => !ui.logMod || l.module === ui.logMod);
+  return `<div class="page-head"><h1>Historique</h1><p>Journal des actions : ce que vous faites dans la démo s'y inscrit.</p></div>
+  <div class="toolbar"><select class="sel" id="log-mod" aria-label="Module"><option value="">Tous les modules</option>${mods.map((m) => `<option ${ui.logMod === m ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></div>
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Utilisateur</th><th>Module</th><th>Action</th></tr></thead><tbody>
+  ${rows.map((l) => `<tr><td class="num">${esc(l.at)}</td><td>${esc(l.who)}</td><td>${esc(l.module)}</td><td>${esc(l.text)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function seedMore() {
+  return {
+    rma: [
+      { ref: "RMA-2026-031", supplier: "Elektron Repair GmbH", item: "Module d'alimentation PSU-800", issue: "Coupure en charge", sn: "PSU800-25-0412", sent: dfmt(daysAgo(41)), due: dfmt(daysAgo(6)), status: "Relance à faire" },
+      { ref: "RMA-2026-034", supplier: "Precision Enclosures Ltd", item: "Boîtier BX-12 (rayure)", issue: "Défaut d'anodisation", sn: "—", sent: dfmt(daysAgo(18)), due: dfmt(inDays(5)), status: "En réparation" },
+      { ref: "RMA-2026-036", supplier: "Lumen Displays SRL", item: "Afficheur OLED AK-D1", issue: "Pixels morts", sn: "OLD-26-1180", sent: dfmt(daysAgo(9)), due: dfmt(inDays(12)), status: "Envoyée" },
+      { ref: "RMA-2026-029", supplier: "Elektron Repair GmbH", item: "Carte DAC AK-D1", issue: "Bruit de fond", sn: "DAC-25-0991", sent: dfmt(daysAgo(30)), due: dfmt(daysAgo(2)), status: "Retour reçu" },
+      { ref: "RMA-2026-022", supplier: "Tonfabrik AG", item: "Transformateur T-300", issue: "Ronflement", sn: "T300-24-0077", sent: dfmt(daysAgo(70)), due: dfmt(daysAgo(40)), status: "Clôturée" },
+    ],
+    orders: [
+      { no: "CO-24518", client: "Studio Nordlicht GmbH", items: "4 × AK-500, 8 × AK-Link 3 m", qty: 12, avail: 12, due: dfmt(inDays(4)), state: "À expédier" },
+      { no: "CO-24531", client: "Studio Nordlicht GmbH", items: "2 × Monolith S", qty: 2, avail: 2, due: dfmt(inDays(6)), state: "À expédier" },
+      { no: "CO-24540", client: "Harbor Hi-Fi Inc.", items: "6 × AK-P2", qty: 6, avail: 4, due: dfmt(inDays(10)), state: "À expédier" },
+      { no: "CO-24502", client: "Maison Sonore SARL", items: "1 × AK-Stream", qty: 1, avail: 1, due: dfmt(daysAgo(2)), state: "Expédiée" },
+    ],
+    serials: [
+      { sn: "AK500-26-0117", product: "Amplificateur de puissance AK-500", events: [{ date: dfmt(daysAgo(60)), label: "Fabriqué et testé (banc 2)", ref: "OF-26-0412" }, { date: dfmt(daysAgo(0)), label: "Réservé pour Studio Nordlicht GmbH", ref: "CO-24518" }, { date: "à venir", label: "Expédition prévue", ref: "DT-2026-0147" }] },
+      { sn: "AK300-25-0864", product: "Amplificateur intégré AK-300", events: [{ date: dfmt(daysAgo(120)), label: "Fabriqué", ref: "OF-25-1180" }, { date: dfmt(daysAgo(6)), label: "Conditionné, palette 3/4", ref: "PL-20261023-001" }, { date: dfmt(inDays(1)), label: "Départ maritime vers Boston", ref: "DT-2026-0143" }] },
+      { sn: "DAC-25-0991", product: "Carte DAC AK-D1", events: [{ date: dfmt(daysAgo(200)), label: "Livrée à Klangwerk Wien OG", ref: "PL-20260412-002" }, { date: dfmt(daysAgo(30)), label: "Envoyée en réparation", ref: "RMA-2026-029" }, { date: dfmt(daysAgo(2)), label: "Retour reçu du fournisseur", ref: "RMA-2026-029" }, { date: dfmt(today), label: "Renvoi au client (express)", ref: "DT-2026-0142" }] },
+    ],
+    stats: { months: [["mai", 31, 4120, 9840], ["juin", 38, 5210, 12360], ["juil.", 27, 3380, 8120], ["août", 19, 2240, 6050], ["sept.", 42, 6130, 14780], ["oct.", 46, 6890, 15920]],
+      modes: [["Route", 112], ["Aérien", 54], ["Express", 26], ["Maritime", 11]], dest: [["Allemagne", 48, 6120], ["France", 37, 3980], ["États-Unis", 22, 7410], ["Japon", 15, 860], ["Italie", 14, 1720]] },
+    ref: {
+      clients: [{ name: "Studio Nordlicht GmbH", contact: "Jonas Weber", city: "Hambourg", country: "Allemagne", email: "logistik@nordlicht.example", vat: "DE000000001" },
+        { name: "Harbor Hi-Fi Inc.", contact: "Emily Carter", city: "Boston", country: "États-Unis", email: "imports@harborhifi.example", vat: "—" },
+        { name: "Maison Sonore SARL", contact: "Hugo Faure", city: "Lyon", country: "France", email: "contact@maisonsonore.example", vat: "FR00000000002" },
+        { name: "Tokyo Listening Lab KK", contact: "Aiko Mori", city: "Tokyo", country: "Japon", email: "orders@tll.example", vat: "—" },
+        { name: "Klangwerk Wien OG", contact: "Lena Huber", city: "Vienne", country: "Autriche", email: "office@klangwerk.example", vat: "ATU00000003" },
+        { name: "Atelier Sonore Gand", contact: "Pieter Claes", city: "Gand", country: "Belgique", email: "info@ateliersonore.example", vat: "BE0000000004", pending: true }],
+      destinataires: [{ name: "Studio Nordlicht · entrepôt", address: "Speicherstraße 21", city: "Hambourg", country: "Allemagne", client: "Studio Nordlicht GmbH" },
+        { name: "Harbor Hi-Fi · showroom", address: "410 Atlantic Ave", city: "Boston", country: "États-Unis", client: "Harbor Hi-Fi Inc." },
+        { name: "Salon HiFi Hambourg · stand 4B", address: "Messeplatz 1", city: "Hambourg", country: "Allemagne", client: "Studio Nordlicht GmbH" }],
+      produits: [{ ref: "AK-500", name: "Amplificateur de puissance AK-500", kg: "24,5", dims: "48 × 45 × 21", hs: "8518.40", origin: "Suisse" },
+        { ref: "AK-300", name: "Amplificateur intégré AK-300", kg: "17,2", dims: "45 × 42 × 16", hs: "8518.40", origin: "Suisse" },
+        { ref: "AK-P2", name: "Préamplificateur AK-P2", kg: "8,4", dims: "44 × 36 × 10", hs: "8543.70", origin: "Suisse" },
+        { ref: "AK-STREAM", name: "Lecteur réseau AK-Stream", kg: "6,1", dims: "44 × 32 × 9", hs: "8519.81", origin: "Suisse" },
+        { ref: "MONO-S", name: "Enceinte Monolith S (pièce)", kg: "29,0", dims: "118 × 36 × 42", hs: "8518.22", origin: "Suisse" },
+        { ref: "AK-LINK-3", name: "Câble haut-parleur AK-Link 3 m", kg: "1,1", dims: "30 × 20 × 8", hs: "8544.42", origin: "Allemagne" }],
+      emballages: [{ name: "Flight case FC-62", type: "Flight case", dims: "62 × 48 × 34", tare: "9,5", stock: "6" },
+        { name: "Carton double cannelure C-60", type: "Carton", dims: "60 × 40 × 40", tare: "1,2", stock: "140" },
+        { name: "Palette Europe", type: "Palette", dims: "120 × 80", tare: "25", stock: "18" },
+        { name: "Caisse bois export", type: "Caisse", dims: "120 × 100 × 120", tare: "48", stock: "4" }],
+      transporteurs: [{ name: "Transports Léman Express", modes: "Route", email: "devis@leman-express.example", delay: "3 h", note: "Groupage Europe" },
+        { name: "AirFret Alpin", modes: "Aérien", email: "devis@airfret-alpin.example", delay: "5 h", note: "Départs Genève et Zurich" },
+        { name: "SwiftCargo", modes: "Express, Aérien", email: "devis@swiftcargo.example", delay: "1 h", note: "Enlèvement avant 16 h" },
+        { name: "Rhône Cargo Maritime", modes: "Maritime", email: "devis@rhonecargo.example", delay: "1 jour", note: "Conteneurs complets et groupage" }],
+    },
+    settings: { signature: SIGN },
+    bc: { last: dfmt(today) + " 07:30", runs: [{ at: dfmt(today) + " 07:30", what: "Commandes clients", read: 128, added: 3 }, { at: dfmt(today) + " 07:30", what: "Clients", read: 412, added: 0 }, { at: dfmt(daysAgo(1)) + " 07:30", what: "Commandes clients", read: 126, added: 5 }] },
+    backups: [{ at: dfmt(today) + " 06:00", file: "goldlog_" + today.toISOString().slice(0, 10) + "_0600.db", size: "18,4 Mo", kind: "automatique" },
+      { at: dfmt(daysAgo(1)) + " 06:00", file: "goldlog_" + daysAgo(1).toISOString().slice(0, 10) + "_0600.db", size: "18,3 Mo", kind: "automatique" },
+      { at: dfmt(daysAgo(2)) + " 06:00", file: "goldlog_" + daysAgo(2).toISOString().slice(0, 10) + "_0600.db", size: "18,1 Mo", kind: "automatique" }],
+    log: [{ at: dfmt(today) + " 08:42", who: "Portail", module: "Demandes de transport", text: "Demande DT-2026-0147 reçue de Nadia Keller" },
+      { at: dfmt(today) + " 07:30", who: "Système", module: "Business Central", text: "Synchronisation : 3 nouvelles commandes" },
+      { at: dfmt(today) + " 06:00", who: "Système", module: "Sauvegardes", text: "Sauvegarde automatique créée" },
+      { at: dfmt(daysAgo(1)) + " 15:08", who: "Portail", module: "Demandes de transport", text: "Demande DT-2026-0146 reçue de Marco Bianchi" },
+      { at: dfmt(daysAgo(1)) + " 11:02", who: "Léa Martin", module: "Demandes de transport", text: "Brouillon de demande de cotation créé pour DT-2026-0145" }],
+  };
+}
+
+/* ───────────────────────── demandes : fiche résumé ───────────────────────── */
+function overview(r, { inModal = false } = {}) {
+  const t = totals(r);
+  const exp = r.kind === "Export";
+  const qty = r.goods.reduce((s, g) => s + g.qty, 0);
+  const urgCls = r.urgency === "Express" ? "urg-exp" : "urg-std";
+  const notices = r.notices.length ? `<div class="notices ${r.notices.some((n) => n.alert) ? "alert" : ""}" id="tour-notices">${r.notices.map((n) => `<div class="notice"><div class="h">💬 ${esc(n.title)} ${n.isNew ? '<span class="new-tag">NOUVEAU</span>' : ""}<span class="muted small">${esc(n.at)}</span></div><div class="x">${esc(n.text)}</div></div>`).join("")}</div>` : "";
+  const pl = S.packingLists.find((p) => p.ref === r.pl);
+  const plDocs = pl ? [`${pl.ref}.pdf`, `Etiquettes_${pl.ref}.pdf`] : [];
+  return `<div class="ov" id="${inModal ? "tour-ov" : "tour-preview"}">
+    <div class="ov-head"><div><div class="ref">${esc(r.number)} · ${dfmt(r.submitted)} à ${r.submitted.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" })}</div>
+      <h3>${esc(r.kind)} ${esc(r.mode.toLowerCase())} · ${esc(r.op)} · ${esc(exp ? r.to.company : r.from.company)}</h3></div>${stateChip(r.state)}</div>
+    ${notices}
+    <div class="routecard" data-zone="origin" title="Double-clic : modifier l'expéditeur ou le destinataire">
+      <div><div class="cap">Origine${exp ? "" : " · import"}</div><div class="city">${esc(r.from.city)}</div><div class="det">${esc(r.from.country)} · ${esc(r.from.company)}</div></div>
+      <div class="mid">${MODE_ICON[r.mode] || "→"} →</div>
+      <div class="r"><div class="cap">Destination${exp ? " · export" : ""}</div><div class="city">${esc(r.to.city)}</div><div class="det">${esc(r.to.country)} · ${esc(r.to.company)}</div></div>
+    </div>
+    <div class="tiles">
+      <div class="tile" data-zone="mode" title="Double-clic : modifier le mode de transport"><div class="caps">Mode de transport</div><div class="v">${MODE_ICON[r.mode] || ""} ${esc(r.mode)}</div><div class="d">Incoterm ${esc(r.incoterm)}</div></div>
+      <div class="tile ${urgCls}" data-zone="urgency" title="Double-clic : modifier l'urgence"><div class="caps">Urgence demandée</div><div class="v">● ${esc(r.urgency)}</div><div class="d">${r.urgency === "Express" ? "départ dès que possible" : "enlèvement au plus vite · livraison indifférente"}</div></div>
+      <div class="tile" data-zone="goods" title="Double-clic : modifier la marchandise"><div class="caps">Marchandise</div><div class="v">${esc(r.goods[0].label)}</div><div class="d">${r.goods.map((g) => `${g.qty} × ${esc(g.label)} · HS ${esc(g.hs)}`).join("<br>")}</div></div>
+      <div class="tile ${r.value == null ? "val-missing" : ""}" data-zone="value" title="Double-clic : modifier la valeur"><div class="caps">Valeur</div><div class="v num">${esc(chf(r.value))}</div><div class="d">${r.value == null ? "aucune valeur saisie : facture attendue" : chf(r.value / qty) + " / pièce"}</div></div>
+    </div>
+    <div class="pk" data-zone="packages" title="Double-clic : modifier les colis">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="caps">Colis</span><span class="tot num">${t.count} colis · ${kg(t.weight)}</span></div>
+      <table><thead><tr><th>Nombre</th><th>Type</th><th>Dimensions (cm)</th><th>Poids / u</th></tr></thead>
+      <tbody>${r.packages.map((p) => `<tr><td>${p.count} ×</td><td>${esc(p.type)}</td><td><b>${p.dims.join(" × ")}</b></td><td>${kg(p.kg)}</td></tr>`).join("")}</tbody></table>
+      <div class="muted small">volume ${t.volume.toFixed(2)} m³${r.mode === "Aérien" || r.mode === "Express" ? ` · poids taxable aérien ≈ ${kg(Math.max(t.weight, t.volume * 1e6 / 6000))}` : ""}</div>
+    </div>
+    ${pl ? `<div class="dossier"><div class="caps">Dossier packing list</div><div><b>📦 ${esc(pl.ref)}</b> · ${esc(pl.title)}</div>
+      <div class="actions" style="margin-top:6px"><button class="btn" type="button" data-pl="${esc(pl.ref)}">Ouvrir la packing list ▸</button></div></div>` : ""}
+    <div class="caps">Pièces jointes (${r.files.length})${plDocs.length ? ` + ${plDocs.length} du dossier packing list` : ""} · un clic pour ouvrir</div>
+    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div class="files" style="flex:1;min-width:0">${[...r.files, ...plDocs].map((f) => `<div class="file" data-file="${esc(f)}" title="${esc(f)}"><div class="ext ${fileExt(f)}"><span>${esc(f.split(".").pop().toUpperCase())}</span></div><div class="nm">${esc(f)}</div></div>`).join("") || '<span class="muted small">Aucune pièce jointe.</span>'}</div>
+      <button class="btn accent" type="button" data-act="dl-all" ${r.files.length + plDocs.length ? "" : "disabled"}>⬇ Tout télécharger</button>
+    </div>
+    ${inModal ? "" : `${ui.confirmDepart === r.id ? `<div class="confirm"><span>${esc(r.number)} : départ le <b>${dfmt(today)}</b> ? La demande passe en « Expédiée », la packing list et la page de suivi du demandeur sont mises à jour.</span>
+        <button class="btn go" type="button" data-act="depart-yes">Confirmer le départ</button><button class="btn" type="button" data-act="depart-no">Annuler</button></div>` : ""}
+      <div class="actions" id="tour-actions">
+        ${r.state === "attente enlèvement" ? '<button class="btn go" type="button" data-act="depart">🚚 Valider le départ</button>' : ""}
+        <button class="btn accent" type="button" data-open="${r.id}">Traiter la demande ▸</button>
+        <button class="btn" type="button" data-act="copy-link">Copier le lien de suivi</button></div>
+      <div class="hint">Astuce : un double clic sur une zone (trajet, mode, urgence, marchandise, valeur, colis) ouvre la demande directement sur le champ à modifier.</div>`}
+  </div>`;
+}
+
+function viewRequests() {
+  const cols = ["à traiter", "en cours", "attente enlèvement"];
+  const sel = reqById(ui.selected) || S.requests[0];
+  const q = ui.search.toLowerCase();
+  const match = (r) => !q || [r.number, r.requester, r.from.company, r.to.company, r.from.city, r.to.city, ...r.goods.map((g) => g.label)].join(" ").toLowerCase().includes(q);
+  const card = (r) => `<button type="button" class="rcard ${r.id === sel.id ? "sel" : ""}" data-sel="${r.id}" style="border-left-color:var(--${STATES[r.state][2]}-fg)">
+      <span class="top"><b>${esc(r.number)}</b><span>${dshort(r.submitted)} ${r.submitted.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" })}</span></span>
+      <span class="route">${esc(r.from.city)} <span class="arr">→</span> ${esc(r.to.city)}</span>
+      <span class="co">${esc(r.from.company)} → ${esc(r.to.company)}</span>
+      <span class="chips"><span class="mini">${MODE_ICON[r.mode] || ""} ${esc(r.mode)}</span><span class="mini">${esc(r.urgency)}</span>${unread(r) ? '<span class="mini msg">💬 nouveau message</span>' : ""}${r.quotes && r.quotes.some((x) => x.state === "Soumise au demandeur") ? '<span class="mini">validation demandeur</span>' : ""}</span>
+      <span class="co">👤 ${esc(r.requester)}${r.departure && r.state === "attente enlèvement" ? " · départ " + dshort(r.departure) : ""}</span></button>`;
+  const board = `<div class="board-wrap">
+    <div class="board" id="tour-board">${cols.map((st) => { const rs = S.requests.filter((r) => r.state === st && match(r));
+      return `<div class="col ${STATES[st][2]}"><div class="col-head"><span style="color:var(--${STATES[st][2]}-fg)">● ${STATES[st][0]}</span><span class="cnt">${rs.length}</span></div>${rs.map(card).join("") || '<div class="empty">Aucune demande</div>'}</div>`; }).join("")}</div>
+    <div class="card pad">${overview(sel)}</div></div>`;
+  const counts = Object.keys(STATES).map((st) => [st, S.requests.filter((r) => r.state === st).length]);
+  const rows = S.requests.filter((r) => (!ui.listFilter || r.state === ui.listFilter) && match(r));
+  const list = `<div class="state-tiles">${counts.map(([st, n]) => `<button type="button" class="state-tile ${ui.listFilter === st ? "on" : ""}" data-filter="${st}" style="border-left-color:var(--${STATES[st][2]}-fg)"><div class="n">${n}</div><div class="muted small">${STATES[st][0]}</div></button>`).join("")}</div>
+    <div class="card tablewrap"><table class="grid"><thead><tr><th>N°</th><th>Statut</th><th>Déposée</th><th>Demandeur</th><th>Trajet</th><th>Mode</th><th>Urgence</th><th>Marchandise</th><th class="num">Valeur</th><th>Transporteur</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr class="click" data-sel-open="${r.id}"><td class="mono"><b>${esc(r.number)}</b></td><td>${stateChip(r.state)}${unread(r) ? ' <span class="new-tag">NOUVEAU</span>' : ""}</td><td class="num">${dfmt(r.submitted)}</td><td>${esc(r.requester)}</td>
+      <td>${esc(r.from.city)} → <b>${esc(r.to.city)}</b><div class="muted small">${esc(r.to.country)}</div></td><td>${esc(r.mode)}</td><td>${esc(r.urgency)}</td><td>${esc(r.goods[0].label)}${r.goods.length > 1 ? ` <span class="muted">+${r.goods.length - 1}</span>` : ""}</td>
+      <td class="num">${r.value == null ? '<span class="muted">à déterminer</span>' : chf(r.value)}</td><td>${esc(r.quotes ? (r.quotes.find((x) => ["Retenue", "Validée"].includes(x.state)) || r.quotes[0]).carrier : "")}</td></tr>`).join("") || '<tr><td colspan="10" class="empty">Aucune demande pour ce filtre.</td></tr>'}</tbody></table></div>`;
+  return `<div class="page-head"><h1>Demandes de transport</h1><p>Reçues du portail des demandeurs, relevées automatiquement.</p></div>
+    <div class="toolbar"><input class="search" id="q" type="search" placeholder="Rechercher : n°, demandeur, société, ville, article…" value="${esc(ui.search)}">
+      <button class="btn" type="button" data-act="sync">⟳ Relever le portail</button><button class="btn" type="button" data-go="portail">🌐 Voir le portail des demandeurs</button></div>
+    <div class="tabs"><button type="button" class="${ui.tab === "board" ? "on" : ""}" data-tab="board">▦ Tableau de suivi (${S.requests.filter((r) => cols.includes(r.state)).length})</button>
+      <button type="button" class="${ui.tab === "list" ? "on" : ""}" data-tab="list">☰ Toutes les demandes (${S.requests.length})</button></div>
+    ${ui.tab === "board" ? board : list}`;
+}
+
+/* ───────────────────────── fiche de la demande ───────────────────────── */
+function steps(r) {
+  const q = r.quotes || [];
+  const order = ["à traiter", "en cours", "attente enlèvement", "expédiée"];
+  const idx = order.indexOf(r.state);
+  const chosen = q.find((x) => ["Retenue", "Validée"].includes(x.state));
+  return [
+    { key: "need", n: 1, title: "Besoin reçu", info: `déposée le ${dfmt(r.submitted)} par ${r.requester}`, done: true },
+    { key: "quote", n: 2, title: "Cotation et validation", info: chosen ? `${chosen.carrier} · ${chf(chosen.amount)}` : q.length ? `${q.length} offre(s) · validation du demandeur` : "demander une cotation", done: idx >= 2 || !!chosen, cur: idx <= 1 && !chosen },
+    { key: "transport", n: 3, title: "Transport et départ", info: r.departure ? `départ ${dfmt(r.departure)}${r.tracking ? " · " + r.tracking : ""}` : "date de départ, n° de suivi", done: idx >= 2, cur: idx === 1 && !!chosen },
+    { key: "docs", n: 4, title: "Pièces pour le demandeur", info: idx >= 2 ? "étiquette et suivi publiés" : "étiquette, confirmation", done: idx >= 2 },
+    { key: "close", n: 5, title: "Clôture et enlèvement", info: r.state === "expédiée" ? `expédiée le ${dfmt(r.departure || today)}` : idx === 2 ? "attente enlèvement : valider le départ" : "", done: idx >= 3, cur: idx === 2 },
+  ];
+}
+function quoteMail(r) {
+  const t = totals(r);
+  return { to: "devis@airfret-alpin.example · devis@swiftcargo.example", subject: `Demande de cotation ${r.number} · ${r.kind} ${r.mode} ${r.from.city} → ${r.to.city}`,
+    body: `Bonjour,\n\nMerci de nous transmettre votre meilleure offre pour l'envoi suivant :\n\n• Trajet : ${r.from.company}, ${r.from.city} (${r.from.country}) → ${r.to.company}, ${r.to.city} (${r.to.country})\n• Mode : ${r.mode} · urgence ${r.urgency} · Incoterm ${r.incoterm}\n• Colis : ${r.packages.map((p) => `${p.count} × ${p.type} ${p.dims.join(" x ")} cm, ${p.kg} kg/u`).join(" ; ")}\n• Poids total : ${kg(t.weight)} · volume ${t.volume.toFixed(2)} m³\n• Marchandise : ${r.goods.map((g) => `${g.qty} × ${g.label} (HS ${g.hs})`).join(", ")}\n• Valeur : ${chf(r.value)}\n\nMerci d'indiquer le délai de transit et la validité de l'offre.\n` };
+}
+function modalView() {
+  const r = reqById(ui.modal); if (!r) return "";
+  const st = steps(r);
+  const cur = st.find((s) => s.cur);
+  const open = ui.openStep || (cur ? cur.key : "close");
+  const quotes = r.quotes || [];
+  const body = (s) => {
+    if (s.key === "need") return `<div class="muted">Demande déposée sur le portail par ${esc(r.requester)}. Les informations clés sont reprises à gauche ; la marchandise est complétée avec le catalogue (poids, dimensions, code HS).</div>`;
+    if (s.key === "quote") return `
+      <div class="actions"><button class="btn accent" type="button" data-act="mail">✉ Créer le brouillon de demande de cotation</button><button class="btn" type="button" data-act="add-quote">+ Enregistrer une offre reçue</button></div>
+      ${ui.mail ? `<div class="mail"><div class="mh"><span>À</span><span>${esc(ui.mail.to)}</span><span>Objet</span><span>${esc(ui.mail.subject)}</span><span>État</span><span><span class="draft-tag">BROUILLON dans Outlook</span> à relire puis envoyer</span></div><pre>${esc(ui.mail.body)}</pre><div class="sig">${esc(SIGN).replace(/\n/g, "<br>")}</div></div>` : ""}
+      ${quotes.length ? `<div class="tablewrap"><table class="grid"><thead><tr><th>Transporteur</th><th class="num">Montant</th><th>Délai</th><th>État</th><th></th></tr></thead><tbody>
+        ${quotes.map((x, i) => `<tr><td>${esc(x.carrier)}</td><td class="num">${chf(x.amount)}</td><td>${esc(x.transit)}</td><td>${esc(x.state)}</td><td>${["Retenue", "Validée"].includes(x.state) ? "✓" : `<button class="btn" type="button" data-keep="${i}">Retenir</button>`}</td></tr>`).join("")}</tbody></table></div>` : '<div class="muted small">Aucune offre enregistrée.</div>'}`;
+    if (s.key === "transport") return `<div class="form-grid">
+        <div class="fld"><label for="f-mode">Mode</label><select id="f-mode">${["Route", "Aérien", "Maritime", "Express"].map((m) => `<option ${m === r.mode ? "selected" : ""}>${m}</option>`).join("")}</select></div>
+        <div class="fld"><label for="f-urg">Urgence</label><select id="f-urg">${["Économique", "Standard", "Express"].map((m) => `<option ${m === r.urgency ? "selected" : ""}>${m}</option>`).join("")}</select></div>
+        <div class="fld"><label for="f-inco">Incoterm</label><select id="f-inco">${["DAP", "EXW", "FCA", "CPT", "DDP"].map((m) => `<option ${m === r.incoterm ? "selected" : ""}>${m}</option>`).join("")}</select></div>
+        <div class="fld"><label for="f-dep">Départ le</label><input id="f-dep" type="date" value="${(r.departure || inDays(1)).toISOString().slice(0, 10)}"></div>
+        <div class="fld"><label for="f-track">N° de suivi</label><input id="f-track" value="${esc(r.tracking || "")}" placeholder="facultatif"></div></div>
+      <div class="actions"><button class="btn accent" type="button" data-act="plan">Confirmer le transport (attente enlèvement)</button><button class="btn" type="button" data-act="remind">✉ Relance transporteur (brouillon)</button></div>`;
+    if (s.key === "docs") return `<div class="muted">Étiquette de transport, confirmation et n° de suivi sont publiés sur la page de suivi du demandeur, qui les télécharge lui-même : aucun mail ne lui est envoyé.</div>`;
+    return `<div class="actions">${r.state === "attente enlèvement" ? '<button class="btn go" type="button" data-act="depart-modal">Valider l\'enlèvement (expédié aujourd\'hui)</button>' : ""}<button class="btn" type="button" data-pl="${esc(r.pl || "")}" ${r.pl ? "" : "disabled"}>Ouvrir l'expédition (packing list)</button></div>
+      <div class="fld"><label for="f-notes">Notes internes</label><textarea id="f-notes" rows="2" placeholder="Cotations reçues, choix, n° d'expédition…"></textarea></div>`;
+  };
+  const tabs = [["suivi", "Suivi"], ["corriger", "Corriger la demande"], ["marchandise", "Marchandise et colis"], ["douane", "Douane (codes HS)"]];
+  let right = "";
+  if (ui.modalTab === "suivi") right = `<div class="right-head"><h3>Traitement de la demande</h3>${stateChip(r.state)}<span class="next">Prochaine action : <b>${esc(cur ? cur.title.toLowerCase() : "aucune")}</b></span></div>
+      ${r.notices.length ? `<div class="notices ${r.notices.some((n) => n.alert) ? "alert" : ""}">${r.notices.map((n) => `<div class="notice"><div class="h">💬 ${esc(n.title)} ${n.isNew ? '<span class="new-tag">NOUVEAU</span>' : ""}</div><div class="x">${esc(n.text)}</div></div>`).join("")}</div>` : ""}
+      <div class="actions"><span class="hint" style="flex:1">Une information manque ? Posez la question : le demandeur répond sur sa page de suivi.</span><button class="btn" type="button" data-act="ask">Poser une question au demandeur…</button></div>
+      ${st.map((s) => `<div class="step ${s.done ? "done" : ""} ${s.cur ? "cur" : ""}" id="step-${s.key}"><button type="button" data-step="${s.key}" aria-expanded="${open === s.key}"><span class="dot">${s.done ? "✓" : s.n}</span><span class="ttl">${s.title}</span><span class="inf">${esc(s.info)}</span><span>${open === s.key ? "▾" : "▸"}</span></button>${open === s.key ? `<div class="body">${body(s)}</div>` : ""}</div>`).join("")}`;
+  if (ui.modalTab === "corriger") right = `<div class="card pad" style="display:flex;flex-direction:column;gap:12px">${["from", "to"].map((side) => `<div><div class="caps">${side === "from" ? "De (expéditeur)" : "À (destinataire)"}</div><div class="form-grid">
+      <div class="fld"><label>Société *</label><input id="p-${side}-company" value="${esc(r[side].company)}"></div><div class="fld"><label>Adresse *</label><input value="${esc(r[side].address || "")}" placeholder="Rue et numéro"></div>
+      <div class="fld"><label>Ville *</label><input id="p-${side}-city" value="${esc(r[side].city)}"></div><div class="fld"><label>Pays *</label><input value="${esc(r[side].country)}"></div></div></div>`).join("")}</div>`;
+  if (ui.modalTab === "marchandise") right = `<div class="card tablewrap"><table class="grid" id="goods-table"><thead><tr><th>Désignation</th><th class="num">Qté</th><th>Code HS</th><th>Nature</th><th class="num">Valeur unit.</th></tr></thead><tbody>
+      ${r.goods.map((g, i) => `<tr><td>${esc(g.label)}</td><td class="num">${g.qty}</td><td class="mono">${esc(g.hs)}</td><td>${esc(g.nature)}</td><td class="num"><input id="g-val-${i}" style="width:110px;text-align:right" value="${r.value == null ? "" : (r.value / r.goods.reduce((s, x) => s + x.qty, 0)).toFixed(2)}" placeholder="à saisir"></td></tr>`).join("")}</tbody></table></div>
+      <div class="card tablewrap"><table class="grid" id="pk-table"><thead><tr><th class="num">Nombre</th><th>Type</th><th class="num">L</th><th class="num">l</th><th class="num">H</th><th class="num">Poids brut / u</th></tr></thead><tbody>
+      ${r.packages.map((p) => `<tr><td class="num">${p.count}</td><td>${esc(p.type)}</td><td class="num">${p.dims[0]}</td><td class="num">${p.dims[1]}</td><td class="num">${p.dims[2]}</td><td class="num">${kg(p.kg)}</td></tr>`).join("")}</tbody></table></div>`;
+  if (ui.modalTab === "douane") right = `<div class="card tablewrap"><table class="grid"><thead><tr><th>Article</th><th>Code HS proposé</th><th>Origine</th><th>Statut</th></tr></thead><tbody>
+      ${r.goods.map((g) => `<tr><td>${esc(g.label)}</td><td class="mono">${esc(g.hs)}</td><td>${r.kind === "Export" ? "Suisse" : esc(r.from.country)}</td><td>${g.hs === "à déterminer" ? '<span class="chip st-todo">à classer</span>' : '<span class="chip st-done">confirmé</span>'}</td></tr>`).join("")}</tbody></table>
+      <div class="pad muted small">La valeur en douane vient toujours de la facture jointe, jamais du catalogue produits.</div></div>`;
+  return `<div class="modal-bg" data-close-bg="1"><div class="modal" role="dialog" aria-modal="true" aria-label="Demande ${esc(r.number)}">
+    <div class="modal-title"><span>Demande</span><b>${esc(r.number)}</b><span class="sp"></span><button class="btn" type="button" data-act="close-modal">Fermer ✕</button></div>
+    <div class="modal-body"><div class="card pad">${overview(r, { inModal: true })}<div class="hint" style="margin-top:8px">Double-cliquez une zone pour la modifier.</div></div>
+      <div class="right"><div class="tabs">${tabs.map(([k, l]) => `<button type="button" class="${ui.modalTab === k ? "on" : ""}" data-mtab="${k}">${l}</button>`).join("")}</div>${right}</div></div></div></div>`;
+}
+
+/* ───────────────────────── packing lists ───────────────────────── */
+const PL_STATES = { draft: ["À conditionner", "st-todo"], ready: ["Prête", "st-prog"], waiting: ["Attente départ", "st-wait"], gone: ["Partie", "st-done"] };
+function viewPacking() {
+  const counts = Object.keys(PL_STATES).map((k) => [k, S.packingLists.filter((p) => p.state === k).length]);
+  return `<div class="page-head"><h1>Packing lists</h1><p>Un dossier par envoi : conditionnement, colis, documents et lien avec la demande de transport.</p></div>
+  <div class="state-tiles" id="tour-pl">${counts.map(([k, n]) => `<div class="state-tile" style="border-left-color:var(--${PL_STATES[k][1].slice(3)}-fg)"><div class="n">${n}</div><div class="muted small">${PL_STATES[k][0]}</div></div>`).join("")}
+    <div class="state-tile" style="border-left-color:var(--accent)"><div class="n">${S.packingLists.filter((p) => p.departure && Math.abs((p.departure - today) / 864e5) < 7 && p.state !== "gone").length}</div><div class="muted small">Départs cette semaine</div></div></div>
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>Référence</th><th>Titre</th><th>Statut</th><th>Destination</th><th>Mode</th><th>Conditionnement</th><th>Transport · départ</th><th>Demande</th><th class="num">Documents</th></tr></thead><tbody>
+  ${S.packingLists.map((p) => { const pct = p.state === "draft" ? p.packed / p.items : 1;
+    return `<tr><td class="mono"><b>${esc(p.ref)}</b></td><td>${esc(p.title)}</td><td><span class="chip ${PL_STATES[p.state][1]}">${PL_STATES[p.state][0]}</span></td><td>${esc(p.dest)}<div class="muted small">${esc(p.client)}</div></td><td>${esc(p.mode)}</td>
+    <td><div class="prog-cell"><div class="bar"><i style="width:${Math.round(pct * 100)}%"></i></div><span class="small num">${p.state === "draft" ? `${p.packed}/${p.items}` : `${p.packages} colis · ${kg(p.kg)}`}</span></div></td>
+    <td>${esc(p.carrier || "à choisir")}<div class="muted small">${p.departure ? (p.state === "gone" ? "parti le " : "départ ") + dfmt(p.departure) : "date à fixer"}</div></td>
+    <td>${p.request ? `<button class="link" type="button" data-open-number="${esc(p.request)}">🚚 ${esc(p.request)}</button>` : '<span class="muted">aucune</span>'}</td><td class="num">📎 ${p.docs}</td></tr>`; }).join("")}
+  </tbody></table></div>
+  <div class="hint">Le lien fonctionne dans les deux sens : la demande ouvre son dossier packing list, et le dossier ouvre sa demande. Les pièces jointes sont regroupées dans un même dossier d'archives.</div>`;
+}
+
+/* ───────────────────────── déchets ───────────────────────── */
+function art(kind, n = 1) {
+  const s = (inner, vb = "0 0 120 80") => `<svg viewBox="${vb}" role="img" aria-hidden="true">${inner}</svg>`;
+  const A = { fill: "var(--accent)", ink: "var(--fg)", soft: "var(--surface)", muted: "var(--muted)" };
+  switch (kind) {
+    case "benne": return s(`<path d="M10 30 L110 30 L98 66 L22 66 Z" fill="#2f6f9f" stroke="${A.ink}" stroke-width="2"/><rect x="20" y="66" width="10" height="6" fill="${A.ink}"/><rect x="90" y="66" width="10" height="6" fill="${A.ink}"/><path d="M28 30 l8 -12 l10 6 l12 -10 l12 9 l10 -6 l8 13" fill="#a3a3a3" stroke="${A.ink}" stroke-width="1.5"/>`);
+    case "cont": return s(`<rect x="34" y="18" width="52" height="50" rx="4" fill="#3f8f4f" stroke="${A.ink}" stroke-width="2"/><rect x="30" y="12" width="60" height="8" rx="3" fill="#2f6f3c" stroke="${A.ink}" stroke-width="2"/><circle cx="44" cy="72" r="5" fill="${A.ink}"/><circle cx="76" cy="72" r="5" fill="${A.ink}"/>`);
+    case "palox": return s(`<rect x="22" y="20" width="76" height="40" rx="3" fill="#2563eb" stroke="${A.ink}" stroke-width="2"/><path d="M22 34 H98 M22 47 H98" stroke="#1e40af" stroke-width="2"/><rect x="22" y="60" width="76" height="8" fill="#1e3a8a"/><rect x="28" y="68" width="10" height="6" fill="${A.ink}"/><rect x="82" y="68" width="10" height="6" fill="${A.ink}"/>`);
+    case "paloxv": return s(`<rect x="22" y="20" width="76" height="40" rx="3" fill="#16a34a" stroke="${A.ink}" stroke-width="2"/><path d="M60 26 l12 20 h-24 z" fill="#fde047" stroke="${A.ink}" stroke-width="1.5"/><text x="60" y="44" font-size="12" text-anchor="middle" font-weight="800" fill="${A.ink}">!</text><rect x="22" y="60" width="76" height="8" fill="#14532d"/><rect x="28" y="68" width="10" height="6" fill="${A.ink}"/><rect x="82" y="68" width="10" height="6" fill="${A.ink}"/>`);
+    case "sac": return s(`<path d="M38 22 Q60 12 82 22 L90 70 Q60 78 30 70 Z" fill="#cbd5e1" fill-opacity=".75" stroke="${A.ink}" stroke-width="2"/><path d="M52 18 q8 -10 16 0" fill="none" stroke="${A.ink}" stroke-width="2"/>`);
+    case "sacbleu": return s(`<path d="M38 22 Q60 12 82 22 L90 70 Q60 78 30 70 Z" fill="#3b82f6" stroke="${A.ink}" stroke-width="2"/><path d="M52 18 q8 -10 16 0" fill="none" stroke="${A.ink}" stroke-width="2"/>`);
+    case "izibag": return s(`<rect x="28" y="22" width="64" height="48" fill="#f8fafc" stroke="${A.ink}" stroke-width="2"/><path d="M28 22 l-6 -8 M92 22 l6 -8 M28 70 v-48 M92 70 v-48" stroke="${A.ink}" stroke-width="2"/><rect x="40" y="38" width="40" height="12" fill="#ef4444"/><text x="60" y="47.5" font-size="9" text-anchor="middle" font-weight="800" fill="#fff">1 m³</text>`);
+    case "carton": return s(`<path d="M24 34 L60 22 L96 34 L96 66 L60 76 L24 66 Z" fill="#c8915b" stroke="${A.ink}" stroke-width="2"/><path d="M24 34 L60 46 L96 34 M60 46 V76" stroke="${A.ink}" stroke-width="2" fill="none"/>`);
+    case "plast": return s(`<path d="M44 20 h14 v8 q10 4 10 14 v28 h-34 v-28 q0 -10 10 -14z" fill="#7dd3fc" stroke="${A.ink}" stroke-width="2"/><path d="M76 34 h20 l-2 36 h-16 z" fill="#a5b4fc" stroke="${A.ink}" stroke-width="2"/>`);
+    case "bois": return s(`<rect x="18" y="30" width="84" height="14" rx="3" fill="#b07a47" stroke="${A.ink}" stroke-width="2"/><rect x="26" y="48" width="70" height="14" rx="3" fill="#9a6538" stroke="${A.ink}" stroke-width="2"/><circle cx="30" cy="37" r="4" fill="none" stroke="#5b3a1d" stroke-width="1.5"/>`);
+    case "metal": return s(`<path d="M24 60 L54 30 L66 42 L36 72 Z" fill="#9ca3af" stroke="${A.ink}" stroke-width="2"/><rect x="62" y="44" width="36" height="22" fill="#cbd5e1" stroke="${A.ink}" stroke-width="2"/><path d="M62 52 h36 M62 59 h36" stroke="${A.ink}" stroke-width="1"/>`);
+    case "resine": return s(`<rect x="40" y="18" width="40" height="54" rx="6" fill="#f97316" stroke="${A.ink}" stroke-width="2"/><rect x="52" y="12" width="16" height="8" fill="${A.ink}"/><path d="M60 32 l12 20 h-24 z" fill="#fde047" stroke="${A.ink}" stroke-width="1.5"/>`);
+    case "menager": return s(`<path d="M36 26 h48 l-6 46 h-36 z" fill="#475569" stroke="${A.ink}" stroke-width="2"/><rect x="32" y="20" width="56" height="7" rx="3" fill="#334155" stroke="${A.ink}" stroke-width="2"/>`);
+    case "pile": { const k = Math.max(1, Math.min(12, n)); const h = Math.min(6, 64 / k);
+      let g = ""; for (let i = 0; i < k; i++) { const y = 72 - (i + 1) * h; g += `<rect x="30" y="${y.toFixed(1)}" width="60" height="${(h - 1).toFixed(1)}" fill="#b07a47" stroke="${A.ink}" stroke-width="1"/>`; }
+      return s(g + `<text x="104" y="74" font-size="13" font-weight="800" text-anchor="end" fill="${A.ink}">${n}</text>`); }
+    case "feuillard": return s(`<circle cx="60" cy="44" r="26" fill="#e5e7eb" stroke="${A.ink}" stroke-width="2"/><circle cx="60" cy="44" r="10" fill="${A.soft}" stroke="${A.ink}" stroke-width="2"/><path d="M84 54 q16 6 24 16" stroke="#e5e7eb" stroke-width="7" fill="none"/>`);
+    default: return s(`<rect x="30" y="20" width="60" height="50" rx="6" fill="${A.fill}"/>`);
+  }
+}
+const CONTAINERS = [["Conteneur 770 L", "cont"], ["Palox divers 630 L (bleu)", "palox"], ["Palox ADR 630 L (vert)", "paloxv"], ["Sac de chantier 1 m³", "izibag"], ["Sac transparent de tri plastique", "sac"], ["Sac bleu de tri sagex", "sacbleu"], ["Benne matériaux légers 7 m³", "benne"]];
+const WASTES = [
+  ["carton", "Carton / papier", "Cartons pliés, papier de bureau", "carton", ["Conteneur 770 L", "Palox divers 630 L (bleu)", "Benne matériaux légers 7 m³"]],
+  ["plast", "Plastique", "Films, emballages, flacons", "plast", ["Sac transparent de tri plastique", "Palox divers 630 L (bleu)"]],
+  ["bois", "Bois", "Caisses, chutes, palettes cassées", "bois", ["Benne matériaux légers 7 m³", "Sac de chantier 1 m³"]],
+  ["pal", "Palettes bois en pile", "Empilées, sans contenant (la pile suit la quantité)", "pile", []],
+  ["metal", "Métaux", "Ferraille, aluminium, chutes", "metal", ["Palox divers 630 L (bleu)", "Benne matériaux légers 7 m³"]],
+  ["resine", "Résine / durcisseur", "Déchet spécial, contenants souillés", "resine", ["Palox ADR 630 L (vert)"]],
+  ["sagex", "Polystyrène expansé", "Calages et coques d'emballage", "sacbleu", ["Sac bleu de tri sagex"]],
+  ["menager", "Déchet ménager", "Cuisine et bureaux", "menager", ["Conteneur 770 L"]],
+];
+const CONSUMABLES = [["sacs110", "Sacs poubelle 110 L", "rouleau de 25", "sac"], ["absorb", "Absorbant universel", "sac de 20 L", "sacbleu"], ["feuillard", "Feuillard textile pour compacteur", "rouleau", "feuillard"]];
+function viewWaste() {
+  const L = S.waste.lines;
+  const card = (w) => { const line = L[w[0]] || { qty: 0, container: w[4][0] || "" };
+    return `<div class="wcard ${line.qty ? "on" : ""}"><div class="art">${art(w[3], w[3] === "pile" ? Math.max(1, line.qty) : 1)}</div><div class="nm">${esc(w[1])}</div><div class="ds">${esc(w[2])}</div>
+      ${w[4].length ? `<select data-cont="${w[0]}" aria-label="Contenant pour ${esc(w[1])}">${w[4].map((c) => `<option ${c === line.container ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : '<span class="muted small">en pile, sans contenant</span>'}
+      <div class="counter"><button type="button" data-q="${w[0]}" data-d="-1" aria-label="Moins">−</button><b>${line.qty}</b><button type="button" data-q="${w[0]}" data-d="1" aria-label="Plus">+</button><span class="muted small">${w[3] === "pile" ? "palette(s)" : "contenant(s)"}</span></div></div>`; };
+  const ccard = (c) => { const line = L[c[0]] || { qty: 0 };
+    return `<div class="wcard ${line.qty ? "on" : ""}"><div class="art">${art(c[3])}</div><div class="nm">${esc(c[1])}</div><div class="ds">${esc(c[2])}</div>
+      <div class="counter"><button type="button" data-q="${c[0]}" data-d="-1" aria-label="Moins">−</button><b>${line.qty}</b><button type="button" data-q="${c[0]}" data-d="1" aria-label="Plus">+</button></div></div>`; };
+  const chosen = WASTES.filter((w) => (L[w[0]] || {}).qty).map((w) => w[3] === "pile" ? `• ${L[w[0]].qty} palettes : ${w[1]} (en pile, sans contenant)` : `• ${L[w[0]].qty} × ${L[w[0]].container || w[4][0]} : ${w[1]}`);
+  const cons = CONSUMABLES.filter((c) => (L[c[0]] || {}).qty).map((c) => `• ${L[c[0]].qty} × ${c[1]} (${c[2]})`);
+  return `<div class="page-head"><h1>Gestion des déchets</h1><p>Nouvelle demande d'enlèvement : choisir les déchets, le contenant et la quantité.</p></div>
+  <div class="section-title"><h2>Déchets à évacuer</h2><span class="muted small">Contenants autorisés par type de déchet · échange du contenant vide décoché par défaut</span></div>
+  <div class="waste-grid" id="tour-waste">${WASTES.map(card).join("")}</div>
+  <div class="section-title"><h2>Consommables à livrer</h2></div>
+  <div class="waste-grid">${CONSUMABLES.map(ccard).join("")}</div>
+  <div class="actions"><button class="btn accent" type="button" data-act="waste-mail" ${chosen.length + cons.length ? "" : "disabled"}>✉ Préparer le brouillon pour le prestataire</button><button class="btn" type="button" data-act="waste-clear">Vider la demande</button></div>
+  ${ui.wasteMail && chosen.length + cons.length ? `<div class="mail"><div class="mh"><span>À</span><span>enlevements@eco-valor.example</span><span>Objet</span><span>Demande d'enlèvement · Alpenklang SA · ${dfmt(today)}</span><span>État</span><span><span class="draft-tag">BROUILLON dans Outlook</span> à relire puis envoyer</span></div>
+    <pre>Bonjour,\n\nMerci de prévoir l'enlèvement suivant à notre adresse (Chemin des Artisans 14, 1227 Carouge) :\n\n${esc(chosen.join("\n"))}${cons.length ? `\n\nEt la livraison de :\n${esc(cons.join("\n"))}` : ""}\n\nAccès par le quai B, du lundi au jeudi de 8 h à 16 h.</pre><div class="sig">${esc(SIGN).replace(/\n/g, "<br>")}</div></div>` : ""}
+  <div class="card tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Demande</th><th>État</th></tr></thead><tbody>${S.waste.history.map((h) => `<tr><td class="num">${esc(h.date)}</td><td>${esc(h.lines)}</td><td><span class="chip ${h.state === "Enlevée" ? "st-done" : "st-prog"}">${esc(h.state)}</span></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+/* ───────────────────────── portail des demandeurs ───────────────────────── */
+function viewPortal() {
+  const r = reqByNumber(ui.portalReq) || S.requests[0];
+  const remarks = S.portalRemarks[r.number] || [];
+  const form = `<div class="portal-in">
+      <h2 style="font-size:24px">Demande de transport</h2><p class="muted" style="margin:0">Décrivez votre besoin, la logistique s'occupe du reste : transporteur, formalités douanières, poids et dimensions.</p>
+      <div class="form-grid"><div class="fld"><label for="pf-name">Vous êtes</label><select id="pf-name"><option>Nadia Keller</option><option>Thomas Rey</option><option>Marco Bianchi</option></select></div></div>
+      <div class="pstep"><span class="n">1</span><h3>Besoin</h3></div>
+      <div class="choice" id="pf-kind"><label><input type="radio" name="kind" value="Export" checked><span>Export</span></label><label><input type="radio" name="kind" value="Import"><span>Import</span></label></div>
+      <div class="pstep"><span class="n">2</span><h3>Destinataire</h3></div>
+      <div class="form-grid"><div class="fld"><label for="pf-co">Société *</label><input id="pf-co" value="Atelier Sonore Gand"></div><div class="fld"><label for="pf-ad">Adresse *</label><input id="pf-ad" value="Korenmarkt 9"></div>
+        <div class="fld"><label for="pf-zip">Code postal *</label><input id="pf-zip" value="9000"></div><div class="fld"><label for="pf-city">Ville *</label><input id="pf-city" value="Gand"></div><div class="fld"><label for="pf-ctry">Pays *</label><input id="pf-ctry" value="Belgique"></div></div>
+      <div class="pstep"><span class="n">3</span><h3>Marchandise</h3></div>
+      <div class="form-grid"><div class="fld"><label for="pf-goods">Produit</label><select id="pf-goods"><option>Amplificateur intégré AK-300</option><option>Paire d'enceintes Monolith S</option><option>Lecteur réseau AK-Stream</option></select></div>
+        <div class="fld"><label for="pf-qty">Quantité</label><input id="pf-qty" type="number" min="1" value="3"></div><div class="fld"><label for="pf-val">Valeur (CHF)</label><input id="pf-val" type="number" min="0" value="12000"></div></div>
+      <div class="pstep"><span class="n">4</span><h3>Type d'expédition</h3></div>
+      <div class="choice"><label><input type="radio" name="ship" value="Colis"><span>Colis</span></label><label><input type="radio" name="ship" value="Palette" checked><span>Palette</span></label><label><input type="radio" name="ship" value="Flight case"><span>Flight case</span></label><label><input type="radio" name="ship" value="Colisage par logistique"><span>Colisage par logistique</span></label></div>
+      <div class="pstep"><span class="n">5</span><h3>Urgence et mode</h3></div>
+      <div class="choice"><label><input type="radio" name="urg" value="Économique"><span>Économique</span></label><label><input type="radio" name="urg" value="Standard" checked><span>Standard</span></label><label><input type="radio" name="urg" value="Express"><span>Express</span></label></div>
+      <div class="fld"><label for="pf-com">Commentaire</label><textarea id="pf-com" rows="2">Showroom : livraison en matinée de préférence.</textarea></div>
+      <div class="actions"><button class="btn accent" type="button" data-act="portal-send">Envoyer la demande</button><span class="hint">La demande arrive dans GoldLog avec une alerte.</span></div></div>`;
+  const track = `<div class="portal-in">
+      <div class="form-grid"><div class="fld"><label for="pt-req">Demande suivie</label><select id="pt-req">${S.requests.map((x) => `<option ${x.number === r.number ? "selected" : ""}>${esc(x.number)}</option>`).join("")}</select></div>
+        <div class="fld"><label for="pt-who">Vous êtes</label><select id="pt-who"><option>${esc(r.requester)}</option><option>Thomas Rey</option><option>Marco Bianchi</option></select></div></div>
+      <div class="card pad" style="box-shadow:none"><h2 style="font-size:22px">Demande ${esc(r.number)}</h2>
+        <p style="margin:4px 0">${esc(r.kind)} ${esc(r.mode)} de ${esc(r.from.city)} vers ${esc(r.to.city)} · ${esc(r.to.company)}</p>
+        <p style="margin:0">${stateChip(r.state)} <span class="muted small">déposée le ${dfmt(r.submitted)} par ${esc(r.requester)}</span></p>
+        <div class="portal-grid" style="margin-top:10px"><div><b>De</b><div class="muted">${esc(r.from.company)}<br>${esc(r.from.city)}, ${esc(r.from.country)}</div></div><div><b>À</b><div class="muted">${esc(r.to.company)}<br>${esc(r.to.city)}, ${esc(r.to.country)}</div></div>
+          <div><b>Expédition</b><div class="muted">${r.packages.map((p) => `${p.count} × ${esc(p.type)}`).join(", ")}</div></div><div><b>Transporteur</b><div class="muted">${esc(r.quotes ? (r.quotes.find((x) => ["Retenue", "Validée"].includes(x.state)) || {}).carrier || "en cotation" : "en cotation")}</div></div>
+          <div><b>N° de suivi</b><div class="muted">${esc(r.tracking || "à venir")}</div></div></div></div>
+      <div class="card pad" style="box-shadow:none;display:flex;flex-direction:column;gap:10px" id="tour-remarks"><h3 style="font-size:19px">💬 Remarques et documents</h3>
+        ${remarks.length ? `<div class="remarks">${remarks.map((x) => `<div class="remark"><div class="muted small">${esc(x.at)} · ${esc(x.by)}</div><div>${esc(x.text)}</div>${x.files.length ? `<div class="muted small">📎 ${x.files.map(esc).join(" · ")}</div>` : ""}</div>`).join("")}</div>` : '<div class="muted small">Aucune remarque pour l\'instant.</div>'}
+        <div class="fld"><label for="pt-text">Remarque sur le projet (à toutes les étapes de la demande)</label><textarea id="pt-text" rows="3" placeholder="Changement de date, précision sur la marchandise, contact sur place…"></textarea></div>
+        <div class="choice"><label><input type="checkbox" id="pt-file"><span>Joindre « Plan_acces_livraison.pdf » (exemple)</span></label></div>
+        <div class="actions"><button class="btn accent" type="button" data-act="portal-remark">Transmettre à la logistique</button><span class="hint">Tracé dans le dossier et signalé par une alerte dans GoldLog.</span></div></div></div>`;
+  return `<div class="page-head"><h1>Portail des demandeurs</h1><p>Ce que voient les collègues dans leur navigateur. Ce qu'ils envoient arrive dans GoldLog, à gauche dans le menu.</p></div>
+  <div class="portal"><div class="portal-top"><b><span>Alpen</span>klang · Demandes de transport</b><span class="small" style="color:var(--on-ink-muted)">Interface interne</span></div>
+    <div class="tabs" style="padding:8px 12px 0"><button type="button" class="${ui.portalTab === "form" ? "on" : ""}" data-ptab="form">Nouvelle demande</button><button type="button" class="${ui.portalTab === "track" ? "on" : ""}" data-ptab="track">Suivi d'une demande</button></div>
+    ${ui.portalTab === "form" ? form : track}</div>`;
+}
+
+/* ───────────────────────── fenêtre d'alerte ───────────────────────── */
+function alertsView() {
+  if (!S.alerts.length) return "";
+  const news = S.alerts.filter((a) => a.kind === "new").length, upd = S.alerts.length - news;
+  return `<div class="alert-win" role="alertdialog" aria-label="Alerte GoldLog"><div class="ah">🔔 <span>${[news ? `${news} nouvelle(s) demande(s)` : "", upd ? `${upd} demande(s) modifiée(s)` : ""].filter(Boolean).join(" · ")}</span><span class="sp"></span><button type="button" data-act="alerts-close" aria-label="Fermer">×</button></div>
+    <div class="ab">${S.alerts.map((a) => { const r = reqByNumber(a.number);
+      return `<div class="acard ${a.kind === "new" ? "" : "upd"}"><b>${a.kind === "new" ? "🆕" : "✏️"} ${esc(a.number)} · ${a.kind === "new" ? "nouvelle demande" : "modifiée par " + esc(a.by)}</b><span class="muted small">${esc(r ? `${r.from.city} → ${r.to.city} · ${r.to.company}` : "")}</span>
+      <div class="chg">${a.changes.map((c) => "• " + esc(c)).join("\n")}</div><div class="actions" style="justify-content:flex-end"><button class="btn accent" type="button" data-alert-open="${esc(a.number)}">Ouvrir la demande</button></div></div>`; }).join("")}</div></div>`;
+}
+
+/* ───────────────────────── visite guidée ───────────────────────── */
+const TOUR = [
+  { view: "accueil", el: "#tour-home", title: "Bienvenue dans GoldLog", text: "Cette démo tourne entièrement dans votre navigateur avec une société fictive, Alpenklang SA. Vous pouvez cliquer partout : rien n'est envoyé." },
+  { view: "accueil", el: "#tour-kpis", title: "Accueil : une icône par fonction", text: "Les fonctions sont classées par thème : opérationnel, pilotage, référentiel et système. Les modules opérationnels affichent le nombre de dossiers à traiter. « Personnaliser la page » permet de déplacer ou masquer les tuiles." },
+  { view: "tableau", el: ".kpis", title: "Tableau de bord", text: "Les tâches du jour de tous les modules, filtrables par domaine, avec les seuils de suivi et les départs prévus." },
+  { view: "demandes", el: "#tour-board", title: "Tableau de suivi des demandes", text: "Les demandes arrivent du portail et se rangent par état : à traiter (rouge), en cours (jaune), attente d'enlèvement (bleu). Cliquez une carte pour l'aperçu." },
+  { view: "demandes", el: "#tour-preview", title: "Aperçu : l'essentiel sans ouvrir", text: "Trajet, mode, urgence, marchandise, valeur, colis et pièces jointes sont visibles d'un coup d'œil. Les messages du demandeur s'affichent en « NOUVEAU »." },
+  { view: "demandes", el: "#tour-actions", title: "Traiter la demande", text: "« Traiter la demande » ouvre la fiche par étapes : brouillon de demande de cotation dans Outlook, offres, transport, départ. Sur une demande en attente d'enlèvement, « Valider le départ » clôt l'envoi en un clic." },
+  { view: "portail", el: "#tour-remarks", title: "Côté demandeur : le portail", setup: () => { ui.portalTab = "track"; }, text: "Les collègues déposent leurs demandes et suivent l'avancement ici. À toutes les étapes, ils peuvent ajouter une remarque ou un document : essayez, puis regardez l'alerte qui apparaît dans GoldLog." },
+  { view: "packing", el: "#tour-pl", title: "Packing lists", text: "Un dossier par envoi, avec l'avancement du conditionnement, le transport et le lien vers la demande de transport." },
+  { view: "dechets", el: "#tour-waste", title: "Gestion des déchets", text: "Une demande d'enlèvement en quelques clics : déchet, contenant, quantité. La pile de palettes se redessine selon le nombre. Le brouillon de mail pour le prestataire est prêt à relire." },
+];
+function tourView() {
+  if (ui.tour == null) return "";
+  const s = TOUR[ui.tour];
+  return `<div class="tour" id="tour-box" role="dialog" aria-label="Visite guidée"><div class="caps">Visite guidée · ${ui.tour + 1} / ${TOUR.length}</div><h4>${esc(s.title)}</h4><p>${esc(s.text)}</p>
+    <div class="tb"><button class="btn ghost" type="button" data-act="tour-end">Quitter</button><span class="sp"></span>${ui.tour ? '<button class="btn" type="button" data-act="tour-prev">◂ Précédent</button>' : ""}
+    <button class="btn accent" type="button" data-act="${ui.tour === TOUR.length - 1 ? "tour-end" : "tour-next"}">${ui.tour === TOUR.length - 1 ? "Terminer" : "Suivant ▸"}</button></div></div>`;
+}
+function placeTour() {
+  const box = $("#tour-box"); if (!box) return;
+  $$(".tour-focus").forEach((e) => e.classList.remove("tour-focus"));
+  const target = $(TOUR[ui.tour].el);
+  if (!target) { box.style.left = "50%"; box.style.top = "120px"; box.style.transform = "translateX(-50%)"; return; }
+  target.classList.add("tour-focus");
+  target.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  setTimeout(() => {
+    const r = target.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight, vw = innerWidth, vh = innerHeight;
+    let top = r.bottom + 12, left = Math.min(Math.max(16, r.left), vw - w - 16);
+    if (top + h > vh - 16) top = Math.max(16, r.top - h - 12);
+    if (top < 16 || top + h > vh - 16) top = vh - h - 16;
+    box.style.transform = "none"; box.style.position = "fixed"; box.style.left = left + "px"; box.style.top = top + "px";
+  }, 320);
+}
+function startTour(i) { ui.tour = i; const s = TOUR[i]; ui.modal = null; if (s.setup) s.setup(); if (ui.view !== s.view) { go(s.view); } else render(); }
+
+/* ───────────────────────── couche (fenêtres) ───────────────────────── */
+function renderLayer() {
+  $("#layer").innerHTML = (ui.modal ? modalView() : "") + (ui.tour == null ? alertsView() : "") + tourView();
+  bindLayer();
+  if (ui.tour != null) placeTour();
+}
+
+/* ───────────────────────── actions ───────────────────────── */
+function openRequest(id) { const r = reqById(id); if (!r) return; ui.selected = id; ui.modal = id; ui.modalTab = "suivi"; ui.openStep = null; ui.mail = null;
+  r.notices.forEach((n) => { n.isNew = false; }); render(); }
+function focusZone(zone) {
+  const map = { origin: ["corriger", "#p-from-city"], mode: ["suivi", "#f-mode", "transport"], urgency: ["suivi", "#f-urg", "transport"], goods: ["marchandise", "#goods-table"], value: ["marchandise", "#g-val-0"], packages: ["marchandise", "#pk-table"] };
+  const [tab, sel, step] = map[zone] || [];
+  if (!tab) return;
+  if (!ui.modal) { ui.modal = ui.selected; }
+  ui.modalTab = tab; if (step) ui.openStep = step; render();
+  const el = $(sel); if (el) { el.focus && el.focus(); el.scrollIntoView({ block: "center" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+}
+function addAlert(number, kind, by, change) {
+  const existing = S.alerts.find((a) => a.number === number && a.kind === kind);
+  if (existing) existing.changes.push(change); else S.alerts.unshift({ number, kind, by, changes: [change] });
+}
+function simulateRemark() {
+  const r = reqByNumber("DT-2026-0145");
+  const text = "Le client confirme l'adresse de livraison, quai 3. Facture définitive jointe.";
+  (S.portalRemarks[r.number] = S.portalRemarks[r.number] || []).push({ at: nowStr(), by: "Thomas Rey", text, files: ["Facture_definitive_TLL-0092.pdf"] });
+  r.notices.push({ title: "Remarque de Thomas Rey", text: text + "\n📎 Facture_definitive_TLL-0092.pdf", at: nowStr(), isNew: true });
+  if (!r.files.includes("Facture_definitive_TLL-0092.pdf")) r.files.push("Facture_definitive_TLL-0092.pdf");
+  addAlert(r.number, "upd", "Thomas Rey", `Remarque : « ${text.slice(0, 60)}… » · 1 document(s) ajouté(s)`);
+  render();
+}
+function act(name, el) {
+  const r = reqById(ui.modal || ui.selected);
+  switch (name) {
+    case "tour": startTour(0); break;
+    case "layout-edit": if (!ui.layout) ui.layout = DEFAULT_LAYOUT(); ui.editing = !ui.editing; render(); break;
+    case "layout-reset": ui.layout = DEFAULT_LAYOUT(); render(); toast("Disposition d'origine rétablie."); break;
+    case "group-create": { const chosen = S.orders.filter((o) => ui.groupSel.includes(o.no));
+      if (new Set(chosen.map((o) => o.client)).size > 1) { toast("Choisissez des commandes d'un même client pour un envoi groupé."); return; }
+      const ref = `PL-${today.toISOString().slice(0, 10).replace(/-/g, "")}-0${S.packingLists.length + 1}`;
+      S.packingLists.unshift({ ref, title: `Groupage ${chosen[0].client} · ${chosen.map((o) => o.no).join(" + ")}`, state: "draft", dest: S.ref.clients.find((c) => c.name === chosen[0].client)?.city || "", client: chosen[0].client,
+        mode: "Route", items: chosen.reduce((t, o) => t + o.avail, 0), packed: 0, packages: 0, kg: 0, carrier: "", departure: null, request: null, docs: 0 });
+      chosen.forEach((o) => { o.state = "Groupée"; }); ui.groupSel = [];
+      log("Expédition groupée", `${ref} créée pour ${chosen.length} commande(s) de ${chosen[0].client}`); toast(`${ref} créée : elle regroupe ${chosen.length} commande(s).`); go("packing"); break; }
+    case "ref-new": ui.refNew = ui.view; render(); break;
+    case "ref-cancel": ui.refNew = null; render(); break;
+    case "bc-sync": ui.bcBusy = true; render(); setTimeout(() => { ui.bcBusy = false; const at = nowStr(); S.bc.last = at;
+      S.bc.runs.unshift({ at, what: "Commandes clients", read: 131, added: 1 }); S.orders.push({ no: "CO-24555", client: "Klangwerk Wien OG", items: "2 × AK-300", qty: 2, avail: 2, due: dfmt(inDays(8)), state: "À expédier" });
+      log("Business Central", "Synchronisation : 1 nouvelle commande (CO-24555)"); render(); toast("Synchronisation terminée : 1 nouvelle commande, visible dans Expédition groupée."); }, 900); break;
+    case "backup-now": { const d = new Date(); S.backups.unshift({ at: nowStr(), file: `goldlog_${d.toISOString().slice(0, 10)}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}.db`, size: "18,4 Mo", kind: "manuelle" });
+      log("Sauvegardes", "Sauvegarde manuelle créée"); render(); toast("Sauvegarde créée."); break; }
+    case "restore-no": ui.restore = null; render(); break;
+    case "restore-yes": log("Sauvegardes", `Restauration de la sauvegarde du ${S.backups[ui.restore].at} (démo)`); ui.restore = null; render(); toast("Sauvegarde restaurée (simulation)."); break;
+    case "tour-next": startTour(ui.tour + 1); break;
+    case "tour-prev": startTour(ui.tour - 1); break;
+    case "tour-end": ui.tour = null; $$(".tour-focus").forEach((e) => e.classList.remove("tour-focus")); renderLayer(); break;
+    case "sync": toast("Portail relevé : aucune nouvelle demande. Les demandes arrivent aussi seules, en arrière-plan."); break;
+    case "dl-all": toast(`${r.files.length + (r.pl ? 2 : 0)} document(s) copiés dans Téléchargements, préfixés « ${r.number} » (simulation).`); break;
+    case "copy-link": toast("Lien de suivi copié : le demandeur suit sa demande sans recevoir de mail."); break;
+    case "depart": ui.confirmDepart = r.id; render(); break;
+    case "depart-no": ui.confirmDepart = null; render(); break;
+    case "depart-yes": case "depart-modal": {
+      r.state = "expédiée"; r.departure = new Date(today); ui.confirmDepart = null;
+      const pl = S.packingLists.find((p) => p.ref === r.pl); if (pl) { pl.state = "gone"; pl.departure = new Date(today); }
+      toast(`${r.number} : expédiée le ${dfmt(today)}. Packing list et page de suivi du demandeur mises à jour.`); log("Demandes de transport", `${r.number} : départ validé, expédiée le ${dfmt(today)}`);
+      if (name === "depart-modal") ui.openStep = null; else { const next = S.requests.find((x) => x.state === "attente enlèvement") || S.requests.find((x) => x.state === "en cours"); if (next) ui.selected = next.id; }
+      render(); break; }
+    case "close-modal": ui.modal = null; ui.mail = null; render(); break;
+    case "mail": log("Demandes de transport", `Brouillon de demande de cotation créé pour ${r.number}`); ui.mail = quoteMail(r); if (r.state === "à traiter") r.state = "en cours"; render(); toast("Brouillon créé dans Outlook : relisez-le puis envoyez-le."); break;
+    case "remind": toast("Brouillon de relance transporteur créé dans Outlook."); break;
+    case "add-quote": r.quotes = r.quotes || []; r.quotes.push({ carrier: ["AirFret Alpin", "Transports Léman Express", "SwiftCargo"][r.quotes.length % 3], amount: Math.round(300 + Math.random() * 900), transit: "48 h", state: "Reçue" });
+      if (r.state === "à traiter") r.state = "en cours"; render(); break;
+    case "plan": r.mode = $("#f-mode").value; r.urgency = $("#f-urg").value; r.incoterm = $("#f-inco").value; r.departure = new Date($("#f-dep").value || today); r.tracking = $("#f-track").value.trim();
+      r.quotes = r.quotes && r.quotes.length ? r.quotes : [{ carrier: "Transports Léman Express", amount: 420, transit: "48 h", state: "Retenue" }];
+      if (!r.quotes.some((q) => ["Retenue", "Validée"].includes(q.state))) r.quotes[0].state = "Retenue";
+      r.state = "attente enlèvement"; ui.openStep = "close"; log("Demandes de transport", `${r.number} : transport confirmé, attente d'enlèvement`); render(); toast("Transport confirmé : la demande passe en attente d'enlèvement."); break;
+    case "ask": toast("Question publiée sur la page de suivi du demandeur (démo)."); break;
+    case "alerts-close": S.alerts = []; renderLayer(); break;
+    case "waste-mail": ui.wasteMail = true; log("Gestion des déchets", "Brouillon de demande d'enlèvement créé"); if (!S.waste.history.some((h) => h.state === "Demandée")) S.waste.history.unshift({ date: dfmt(today), lines: WASTES.filter((w) => (S.waste.lines[w[0]] || {}).qty).map((w) => `${S.waste.lines[w[0]].qty} × ${w[1]}`).join(" · ") || "Consommables", state: "Demandée" }); render(); toast("Brouillon créé dans Outlook pour le prestataire."); break;
+    case "waste-clear": S.waste.lines = {}; ui.wasteMail = false; render(); break;
+    case "portal-send": {
+      const co = $("#pf-co").value.trim(), ad = $("#pf-ad").value.trim(), zip = $("#pf-zip").value.trim(), city = $("#pf-city").value.trim(), ctry = $("#pf-ctry").value.trim();
+      if (!co || !ad || !zip || !city || !ctry) { toast("Indiquez la société, l'adresse, le code postal, la ville et le pays du destinataire."); return; }
+      const qty = Math.max(1, +$("#pf-qty").value || 1), val = +$("#pf-val").value || null, ship = (document.querySelector("input[name=ship]:checked") || {}).value || "Colis";
+      const kind = (document.querySelector("input[name=kind]:checked") || {}).value, urg = (document.querySelector("input[name=urg]:checked") || {}).value, who = $("#pf-name").value, com = $("#pf-com").value.trim();
+      const number = `DT-2026-0${S.seq++}`;
+      const ALP = { company: "Alpenklang SA", city: "Carouge", country: "Suisse" }, other = { company: co, city, country: ctry, address: `${ad}, ${zip} ${city}` };
+      const req = { id: Date.now(), number, kind, op: "Vente", from: kind === "Export" ? ALP : other, to: kind === "Export" ? other : ALP, mode: urg === "Express" ? "Express" : "Route", urgency: urg, incoterm: "DAP", requester: who, submitted: new Date(), state: "à traiter",
+        goods: [{ qty, label: $("#pf-goods").value, nature: "Équipement audio", hs: "8518.40" }], value: val,
+        packages: ship === "Colisage par logistique" ? [] : [{ count: ship === "Palette" ? 1 : qty, type: ship, dims: ship === "Palette" ? [120, 80, 100] : [60, 40, 35], kg: ship === "Palette" ? 140 : 18 }],
+        files: ["Proforma_" + number + ".pdf"], notices: com ? [{ title: "Commentaire de la demande", text: com, at: nowStr(), isNew: true }] : [], pl: null };
+      S.requests.unshift(req); ui.selected = req.id; S.log.unshift({ at: nowStr(), who: "Portail", module: "Demandes de transport", text: `Demande ${number} reçue de ${who}` });
+      addAlert(number, "new", who, `${kind} ${req.mode} vers ${city} (${ctry}) · ${qty} × ${req.goods[0].label}${ship === "Colisage par logistique" ? " · colisage par la logistique" : ""}`);
+      render(); toast(`Demande ${number} envoyée : elle vient d'arriver dans GoldLog (alerte en bas à droite).`); break; }
+    case "portal-remark": {
+      const pr = reqByNumber(ui.portalReq); const text = $("#pt-text").value.trim(); const withFile = $("#pt-file").checked; const who = $("#pt-who").value;
+      if (!text && !withFile) { toast("Écrivez une remarque ou joignez un document."); return; }
+      const files = withFile ? ["Plan_acces_livraison.pdf"] : [];
+      (S.portalRemarks[pr.number] = S.portalRemarks[pr.number] || []).push({ at: nowStr(), by: who, text, files });
+      pr.notices.push({ title: `Remarque de ${who}`, text: [text, files.length ? "📎 " + files.join(", ") : ""].filter(Boolean).join("\n"), at: nowStr(), isNew: true });
+      files.forEach((f) => { if (!pr.files.includes(f)) pr.files.push(f); }); S.log.unshift({ at: nowStr(), who: "Portail", module: "Demandes de transport", text: `${pr.number} : remarque de ${who}` });
+      addAlert(pr.number, "upd", who, [text ? `Remarque : « ${text.length > 70 ? text.slice(0, 70) + "…" : text} »` : "", files.length ? `${files.length} document(s) ajouté(s)` : ""].filter(Boolean).join(" · "));
+      render(); toast("Transmis à la logistique : l'alerte est apparue dans GoldLog."); break; }
+  }
+}
+
+/* ───────────────────────── liaisons ───────────────────────── */
+function bindCommon(root) {
+  $$("[data-act]", root).forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); act(b.dataset.act, b); }));
+  $$("[data-go]", root).forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
+  $$("[data-open]", root).forEach((b) => { b.addEventListener("click", () => openRequest(+b.dataset.open)); b.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(+b.dataset.open); }); });
+  $$("[data-open-number]", root).forEach((b) => b.addEventListener("click", () => { const r = reqByNumber(b.dataset.openNumber); if (r) { go("demandes"); setTimeout(() => openRequest(r.id), 0); } }));
+  $$("[data-pl]", root).forEach((b) => b.addEventListener("click", () => { ui.modal = null; go("packing"); }));
+  $$("[data-file]", root).forEach((b) => b.addEventListener("click", () => toast(`« ${b.dataset.file} » ouvert (simulation).`)));
+  $$("[data-zone]", root).forEach((z) => z.addEventListener("dblclick", (e) => { e.preventDefault(); focusZone(z.dataset.zone); }));
+}
+function bindView() {
+  const root = $("#view"); bindCommon(root);
+  $$("[data-sel]", root).forEach((b) => { b.addEventListener("click", () => { ui.selected = +b.dataset.sel; ui.confirmDepart = null; render(); }); b.addEventListener("dblclick", () => openRequest(+b.dataset.sel)); });
+  $$("[data-sel-open]", root).forEach((b) => b.addEventListener("click", () => openRequest(+b.dataset.selOpen)));
+  $$("[data-tab]", root).forEach((b) => b.addEventListener("click", () => { ui.tab = b.dataset.tab; render(); }));
+  $$("[data-filter]", root).forEach((b) => b.addEventListener("click", () => { ui.listFilter = ui.listFilter === b.dataset.filter ? "" : b.dataset.filter; render(); }));
+  const q = $("#q", root); if (q) q.addEventListener("input", () => { ui.search = q.value; const pos = q.selectionStart; render(); const n = $("#q"); n.focus(); n.setSelectionRange(pos, pos); });
+  $$("[data-q]", root).forEach((b) => b.addEventListener("click", () => { const k = b.dataset.q; const w = WASTES.find((x) => x[0] === k);
+    const line = S.waste.lines[k] || { qty: 0, container: w ? w[4][0] || "" : "" }; line.qty = Math.max(0, Math.min(40, line.qty + +b.dataset.d)); S.waste.lines[k] = line; render(); }));
+  $$("[data-cont]", root).forEach((s) => s.addEventListener("change", () => { const k = s.dataset.cont; const line = S.waste.lines[k] || { qty: 0 }; line.container = s.value; S.waste.lines[k] = line; }));
+  $$("[data-ptab]", root).forEach((b) => b.addEventListener("click", () => { ui.portalTab = b.dataset.ptab; render(); }));
+  const pr = $("#pt-req", root); if (pr) pr.addEventListener("change", () => { ui.portalReq = pr.value; render(); });
+  // accueil : tuiles (clavier), personnalisation par glisser-déposer
+  $$(".htile[role=link]", root).forEach((t) => t.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(t.dataset.go); } }));
+  $$("[data-hide]", root).forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); const k = b.dataset.hide; ui.layout.sections.forEach((sec) => { sec.tiles = sec.tiles.filter((x) => x !== k); }); ui.layout.hidden.push(k); render(); }));
+  $$("[data-unhide]", root).forEach((b) => b.addEventListener("click", () => { const k = b.dataset.unhide; ui.layout.hidden = ui.layout.hidden.filter((x) => x !== k);
+    const home = DEFAULT_LAYOUT().sections.findIndex((sec) => sec.tiles.includes(k)); (ui.layout.sections[home] || ui.layout.sections[0]).tiles.push(k); render(); }));
+  $$("[data-drag]", root).forEach((t) => { t.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", t.dataset.drag); e.dataTransfer.effectAllowed = "move"; t.classList.add("dragging"); });
+    t.addEventListener("dragend", () => t.classList.remove("dragging")); });
+  $$(".hsec[data-sec]", root).forEach((sec) => {
+    sec.addEventListener("dragover", (e) => { e.preventDefault(); sec.classList.add("drop"); });
+    sec.addEventListener("dragleave", () => sec.classList.remove("drop"));
+    sec.addEventListener("drop", (e) => { e.preventDefault(); const k = e.dataTransfer.getData("text/plain"); if (!MODULES[k]) return;
+      const over = e.target.closest("[data-drag]"); ui.layout.sections.forEach((x) => { x.tiles = x.tiles.filter((y) => y !== k); });
+      const tiles = ui.layout.sections[+sec.dataset.sec].tiles; const at = over && over.dataset.drag !== k ? tiles.indexOf(over.dataset.drag) : -1;
+      if (at >= 0) tiles.splice(at, 0, k); else tiles.push(k); render(); }); });
+  // tableau de bord, RMA, groupage
+  $$("[data-dash]", root).forEach((b) => b.addEventListener("click", () => { ui.dashFilter = b.dataset.dash; render(); }));
+  $$("[data-rmaf]", root).forEach((b) => b.addEventListener("click", () => { ui.rmaFilter = ui.rmaFilter === b.dataset.rmaf ? "" : b.dataset.rmaf; render(); }));
+  $$("[data-rma]", root).forEach((b) => b.addEventListener("click", () => { const x = S.rma[+b.dataset.i];
+    if (b.dataset.rma === "remind") { log("RMA fournisseurs", `Relance de ${x.ref} préparée (brouillon) pour ${x.supplier}`); toast(`Brouillon de relance créé dans Outlook pour ${x.supplier}.`); if (x.status === "Relance à faire") x.status = "En réparation"; }
+    if (b.dataset.rma === "back") { x.status = "Retour reçu"; log("RMA fournisseurs", `${x.ref} : retour reçu`); toast(`${x.ref} : retour enregistré.`); }
+    if (b.dataset.rma === "close") { x.status = "Clôturée"; log("RMA fournisseurs", `${x.ref} clôturée`); toast(`${x.ref} clôturée.`); }
+    render(); }));
+  $$("[data-order]", root).forEach((c) => c.addEventListener("change", () => { const n = c.dataset.order; ui.groupSel = c.checked ? [...ui.groupSel, n] : ui.groupSel.filter((x) => x !== n); render(); }));
+  // recherches
+  const live = (id, set) => { const el = $(id, root); if (el) el.addEventListener("input", () => { set(el.value); const pos = el.selectionStart; render(); const n = $(id); n.focus(); n.setSelectionRange(pos, pos); }); };
+  live("#trace-q", (v) => { ui.traceQ = v; });
+  const rq = $("#ref-q", root); if (rq) live("#ref-q", (v) => { ui.refQ[rq.dataset.refq] = v; });
+  const rf = $("#ref-form", root); if (rf) { rf.querySelector("input").focus(); rf.addEventListener("submit", (e) => { e.preventDefault(); const key = ui.view; const row = {};
+    REF[key].cols.forEach(([k]) => { row[k] = rf.elements[k].value.trim(); }); const first = REF[key].cols[0][0];
+    if (!row[first]) { toast(`Indiquez : ${REF[key].cols[0][1].toLowerCase()}.`); return; }
+    S.ref[key].unshift(row); ui.refNew = null; log(MODULES[key][0], `Fiche « ${row[first]} » créée`); render(); toast("Fiche enregistrée."); }); }
+  const sf = $("#settings-form", root); if (sf) { sf.addEventListener("submit", (e) => { e.preventDefault(); S.settings.signature = $("#st-sign").value; log("Paramétrage", "Réglages enregistrés"); toast("Réglages enregistrés."); });
+    $$("input[name=theme]", sf).forEach((r) => r.addEventListener("change", () => { if (r.value) document.documentElement.dataset.theme = r.value; else delete document.documentElement.dataset.theme; })); }
+  $$("[data-restore]", root).forEach((b) => b.addEventListener("click", () => { ui.restore = +b.dataset.restore; render(); }));
+  const lm = $("#log-mod", root); if (lm) lm.addEventListener("change", () => { ui.logMod = lm.value; render(); });
+}
+function bindLayer() {
+  const root = $("#layer"); bindCommon(root);
+  $$("[data-mtab]", root).forEach((b) => b.addEventListener("click", () => { ui.modalTab = b.dataset.mtab; renderLayer(); }));
+  $$("[data-step]", root).forEach((b) => b.addEventListener("click", () => { ui.openStep = ui.openStep === b.dataset.step ? "__none" : b.dataset.step; renderLayer(); }));
+  $$("[data-keep]", root).forEach((b) => b.addEventListener("click", () => { const r = reqById(ui.modal); r.quotes.forEach((q, i) => { if (["Retenue"].includes(q.state)) q.state = "Reçue"; if (i === +b.dataset.keep) q.state = "Retenue"; }); ui.openStep = "transport"; render(); }));
+  $$("[data-alert-open]", root).forEach((b) => b.addEventListener("click", () => { const r = reqByNumber(b.dataset.alertOpen); S.alerts = S.alerts.filter((a) => a.number !== b.dataset.alertOpen); if (r) { if (ui.view !== "demandes") { location.hash = "demandes"; } ui.tab = "board"; setTimeout(() => openRequest(r.id), 0); } else renderLayer(); }));
+  const bg = $("[data-close-bg]", root); if (bg) bg.addEventListener("click", (e) => { if (e.target === bg) { ui.modal = null; render(); } });
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (ui.tour != null) act("tour-end"); else if (ui.modal) { ui.modal = null; render(); } } });
+$("#btn-tour").addEventListener("click", () => startTour(0));
+$("#btn-sim").addEventListener("click", simulateRemark);
+$("#btn-reset").addEventListener("click", () => { S = { ...seed(), ...seedMore() }; ui.layout = null; ui.editing = false; ui.groupSel = []; ui.restore = null; ui = { ...ui, selected: 1, modal: null, listFilter: "", search: "", mail: null, confirmDepart: null, wasteMail: false, tour: null, portalReq: "DT-2026-0144" }; render(); toast("Démo réinitialisée."); });
+window.addEventListener("resize", () => { if (ui.tour != null) placeTour(); });
+readHash(); render();
+})();
+</script>
+
+</body>
+</html>
